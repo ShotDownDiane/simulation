@@ -1,5 +1,7 @@
 #include "basic/pregel-dev.h"
 #include <string>
+#include <map>
+#include <set>
 #include <vector>
 using namespace std;
 typedef unsigned int UINT_32;
@@ -7,24 +9,34 @@ typedef unsigned char UINT_8;
 #define ABSENT_ELEMENT -1
 #define PRESENT_ELEMENT 1
 
-UINT_8 GetBit(UINT_32 number, UINT_32 index) {
-	if (index < 0 || index > 31)
-		return 0xff; //如果传入参数有问题，则返回0xff，表示异常
-	return (number >> index) & 1UL;
-}
+struct Msg_pregel {
+	VertexID id;
+	UINT_32 simset;
+	char label;
+};
 
 struct CCValue_pregel {
 	char label;
 	int id;
 	int inDegree;
-	vector<VertexID> inNeighbors;
+//	vector<Msg_pregel> inNeighbors;
+	map<VertexID,Msg_pregel> inNeighbors;
 	int outDegree;
-	vector<VertexID> outNeighbors; //邻接顶点
-	vector<vector<int> > simchildcountStack; //子结点simulate数[*,*,*....]
-	vector<vector<int> > simparentcountStack;
-//TODO:for simset, consider using bitmap to store the set to accelerate the process
-	vector<vector<VertexID> > simsetStack; //自身simulate结点{*,*...}
+//	vector<Msg_pregel> outNeighbors;
+	map<VertexID,Msg_pregel> outNeighbors;
+
+	vector<UINT_32> simsetStack;
 };
+
+
+ibinstream & operator<<(ibinstream & m, const Msg_pregel & msg) {
+	m << msg.id;
+	m << msg.simset;
+}
+obinstream & operator>>(obinstream & m, Msg_pregel & msg) {
+	m >> msg.id;
+	m >> msg.simset;
+}
 
 ibinstream & operator<<(ibinstream & m, const CCValue_pregel & v) {
 	m << v.label;
@@ -46,26 +58,25 @@ obinstream & operator>>(obinstream & m, CCValue_pregel & v) {
 	return m;
 }
 
-class CCVertex_pregel: public Vertex<VertexID, CCValue_pregel, int> {
+class CCVertex_pregel: public Vertex<VertexID, CCValue_pregel, Msg_pregel> {
 public:
-	void broadcastout(int msg) {
-		vector<VertexID> & nbs = value().outNeighbors;
-		for (int i = 0; i < nbs.size(); i++) {
-			send_message(nbs[i], msg);
+	void broadcast(UINT_32 simset) {
+		Msg_pregel msg;
+		msg.id = value().id;
+		msg.simset = simset;
+		vector<Msg_pregel> & onbs = value().outNeighbors;
+		for (UINT_32 i = 0; i < onbs.size(); i++) {
+			send_message(onbs[i].id, msg);
 		}
-	}
-
-	void broadcastin(int msg) {
-		vector<VertexID> & nbs = value().inNeighbors;
-		for (int i = 0; i < nbs.size(); i++) {
-			send_message(nbs[i], msg);
+		msg.simset = msg.simset | 1 << 31;
+		vector<Msg_pregel> & inbs = value().inNeighbors;
+		for (UINT_32 i = 0; i < inbs.size(); i++) {
+			send_message(inbs[i].id, msg);
 		}
 	}
 
 	void Vnormalcompute(MessageContainer & messages) {
-		vector<vector<VertexID> > &simsetStack = value().simsetStack;
-		vector<vector<int> > &simchildcountStack = value().simchildcountStack;
-		vector<vector<int> > &simparentcountStack = value().simparentcountStack;
+		vector<UINT_32> &simsetStack = value().simsetStack;
 		if (mutated) {
 			//first, simcountStack and simsetStack
 			simsetStack.resize(edges.size());
@@ -73,67 +84,98 @@ public:
 				simsetStack[simsetStack.size() - 1] =
 						simsetStack[simsetStack.size() - 2];
 			}
-			simsetStack[simsetStack.size() - 1].resize(q.labels.size());
-			vector<VertexID> &simset = simsetStack[simsetStack.size() - 1];
 
-			//simchildcountStack
-			simchildcountStack.resize(edges.size());
-			if (simchildcountStack.size() > 1) {
-				simchildcountStack[simchildcountStack.size() - 1] =
-						simchildcountStack[simchildcountStack.size() - 2];
-			}
-			simchildcountStack[simchildcountStack.size() - 1].resize(
-					q.labels.size());
-			vector<int> &simchildcount =
-					simchildcountStack[simchildcountStack.size() - 1];
-
-			//simparentcountStack
-			simparentcountStack.resize(edges.size());
-			if (simparentcountStack.size() > 1) {
-				simparentcountStack[simparentcountStack.size() - 1] =
-						simparentcountStack[simparentcountStack.size() - 2];
-			}
-			simparentcountStack[simparentcountStack.size() - 1].resize(
-					q.labels.size());
-			vector<int> &simparentcount =
-					simparentcountStack[simparentcountStack.size() - 1];
+			UINT_32 &simset = simsetStack[simsetStack.size() - 1];
 
 			vector<int> &partialSupp = partialSuppStack[partialSuppStack.size()
 					- 1];
 //			/*
-//			 * initial the simcount array, the size of this array equals to the number of vertexes in q
+//			 * update the in and out neighbors of the vertex
 //			 */
 
 			if (gspanMsg.fromlabel != -1) {
-				simchildcount[gspanMsg.fromid] = value().inDegree;
-				simparentcount[gspanMsg.fromid] = value().outDegree;
+				for(map<VertexID,Msg_pregel>::iterator it=value().outNeighbors.begin();
+						it!=value().outNeighbors.end();it++){
+					if(it->second.label==gspanMsg.fromlabel){
+						it->second.simset |= 1<<gspanMsg.fromid;
+					}else{
+						it->second.simset &= ~(1<<gspanMsg.fromid);
+					}
+				}
+				for(map<VertexID,Msg_pregel>::iterator it=value().inNeighbors.begin();
+						it!=value().inNeighbors.end();it++){
+					if(it->second.label==gspanMsg.fromlabel){
+						it->second.simset |= 1<<gspanMsg.fromid;
+					}else{
+						it->second.simset &= ~(1<<gspanMsg.fromid);
+					}
+				}
 			}
+
 			if (gspanMsg.tolabel != -1) {
-				simchildcount[gspanMsg.toid] = value().inDegree;
-				simparentcount[gspanMsg.toid] = value().outDegree;
+				for(map<VertexID,Msg_pregel>::iterator it=value().outNeighbors.begin();
+						it!=value().outNeighbors.end();it++){
+					if(it->second.label==gspanMsg.tolabel){
+						it->second.simset |= 1<<gspanMsg.toid;
+					}else{
+						it->second.simset &= ~(1<<gspanMsg.toid);
+					}
+				}
+				for(map<VertexID,Msg_pregel>::iterator it=value().inNeighbors.begin();
+						it!=value().inNeighbors.end();it++){
+					if(it->second.label==gspanMsg.tolabel){
+						it->second.simset |= 1<<gspanMsg.toid;
+					}else{
+						it->second.simset &= ~(1<<gspanMsg.toid);
+					}
+				}
 			}
+
 
 //			 *initial simset and increment the partialSupport
 //			 */
 			if (gspanMsg.fromlabel != -1) {
 				if (value().label == gspanMsg.fromlabel) {
-					simset[gspanMsg.fromid] = PRESENT_ELEMENT;
+					simset |= 1<< gspanMsg.fromid;
 					partialSupp[gspanMsg.fromid]++;
 				} else {
-					simset[gspanMsg.fromid] = ABSENT_ELEMENT;
+					simset &= ~(1<<gspanMsg.fromid);
 				}
 			}
 			if (gspanMsg.tolabel != -1) {
 				if (value().label == gspanMsg.tolabel) {
-					simset[gspanMsg.toid] = PRESENT_ELEMENT;
+					simset |= 1<< gspanMsg.toid;
 					partialSupp[gspanMsg.toid]++;
 				} else {
-					simset[gspanMsg.toid] = ABSENT_ELEMENT;
+					simset &= ~(1<gspanMsg.toid);
 				}
 			}
+
 //			/*
 //			 * setup the bitmap_msg
 //			 */
+			for(int i=0;i<q.labels.size();i++){
+				if(simset & 1<<i){
+					//testing if this vertex can match i any more.
+					set<char> qnlabels;
+
+					for(int j=0;j<q.inEdges[i].size();j++){
+						char l=q.labels[q.inEdges[i][j]];
+						if(qnlabels.find(l)==qnlabels.end()){
+							qnlabels.insert(l);
+						}
+					}
+
+					for(int j=0;j<q.outEdges[i].size();j++){
+						char l=q.labels[q.outEdges[i][j]];
+						if(qnlabels.find(l)==qnlabels.end()){
+							qnlabels.insert(l);
+						}
+					}
+
+
+				}
+			}
 
 			//----------------pack up msg--------------------------
 			UINT_32 bitmap_msg = 0x0;
@@ -170,16 +212,6 @@ public:
 					bitmap_msg |= 1 << gspanMsg.toid;
 				}
 			}
-//			/*
-//			 * print the bitmap message
-//			 */
-//			/*			printf("bitmap_msg from v %d is %d:", value().id,bitmap_msg);
-//			 for (int i = 31; i >= 0; i--) {
-//			 printf("%d", GetBit(bitmap_msg, i));
-//			 if (i % 8 == 0)
-//			 putchar(' ');
-//			 }
-//			 printf("\n");*/
 
 //			//broadcast message
 			if (bitmap_msg != 0) {
@@ -285,15 +317,17 @@ public:
 
 	void Vpreprocessing(MessageContainer & messages) {
 		if (preprocessSuperstep == 1) {
-			vector<VertexID> & nbs = value().outNeighbors;
+			vector<Msg_pregel> & nbs = value().outNeighbors;
+			Msg_pregel msg;
+			msg.simset=value().label;
 			for (int i = 0; i < nbs.size(); i++) {
-				send_message(nbs[i], value().label);
+				send_message(nbs[i].id, msg);
 			}
 		} else if (preprocessSuperstep == 2) {
 			//summarize the edge frequency in this partition
 			for (MessageContainer::iterator it = messages.begin();
 					it != messages.end(); ++it) {
-				edgeFrequent[value().label][*it]++;
+				edgeFrequent[value().label][it->simset]++;
 			}
 		}
 		vote_to_halt();
@@ -303,36 +337,6 @@ public:
 		if (phase == preprocessing) {
 			Vpreprocessing(messages);
 		} else if (phase == normalcomputing) {
-			{/* //debug
-				ST("simchildcount, simparentcount and simset of node %d:\n",
-						value().id);
-				if (value().simchildcountStack.size() > 0) {
-					vector<int> & simchildcount =
-							value().simchildcountStack[value().simchildcountStack.size()
-									- 1];
-					for (int i = 0; i < simchildcount.size(); i++) {
-						printf("%d ", simchildcount[i]);
-					}
-					printf("\n");
-				}
-				if (value().simparentcountStack.size() > 0) {
-					vector<int> & simparentcount =
-							value().simparentcountStack[value().simparentcountStack.size()
-									- 1];
-					for (int i = 0; i < simparentcount.size(); i++) {
-						printf("%d ", simparentcount[i]);
-					}
-					printf("\n");
-				}
-				if (value().simsetStack.size() > 0) {
-					vector<int> & simset =
-							value().simsetStack[value().simsetStack.size() - 1];
-					for (int i = 0; i < simset.size(); i++) {
-						printf("%d ", simset[i]);
-					}
-					printf("\n");
-				}
-			*/}
 			Vnormalcompute(messages);
 		}
 	}
@@ -423,15 +427,18 @@ public:
 #endif
 		pch = strtok(NULL, " "); //outDegree
 		v->value().outDegree = atoi(pch);
+		Msg_pregel nb;
 		for (int i = 0; i < v->value().outDegree; i++) {
 			pch = strtok(NULL, " "); //neighbor
-			v->value().outNeighbors.push_back(atoi(pch));
+			nb.id=atoi(pch);
+			v->value().outNeighbors[nb.id]=nb;
 		}
 		pch = strtok(NULL, " "); //inDegree
 		v->value().inDegree = atoi(pch);
 		for (int i = 0; i < v->value().inDegree; i++) {
 			pch = strtok(NULL, " ");
-			v->value().inNeighbors.push_back(atoi(pch));
+			nb.id=atoi(pch);
+			v->value().inNeighbors[nb.id]=nb;
 		}
 		return v;
 	}
@@ -439,22 +446,13 @@ public:
 	virtual void toline(CCVertex_pregel* v, BufferedWriter & writer) {
 //		sprintf(buf, "vid:%d\t can_similate:%d \n", v->value().id,
 //				v->value().simset[0]);
-//		printf("v#%d:\n\tin:",v->value().id);
-//		for(int i=0;i<v->value().inNeighbors.size();i++){
-//			printf("%d ",v->value().inNeighbors[i]);
-//		}
-//		printf("\n\tout:");
-//		for(int i=0;i<v->value().outNeighbors.size();i++){
-//			printf("%d ",v->value().outNeighbors[i]);
-//		}
-//		printf("\n");
 		writer.write(buf);
 	}
 };
 //=============================use no combiner==============================
 class CCCombiner_pregel: public Combiner<VertexID> {
 public:
-	virtual void combine(VertexID & old, const VertexID & new_msg) {
+	virtual void combine(Msg_pregel & old, const Msg_pregel & new_msg) {
 	}
 };
 
