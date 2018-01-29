@@ -57,7 +57,50 @@ obinstream & operator>>(obinstream & m, CCValue_pregel & v) {
 	m >> v.outNeighbors;
 	return m;
 }
-
+bool o2oMatch(UINT_32 tobematch, vector<UINT_32> & simsets, vector<bool> & used,
+		int depth = 1) {
+	assert(simsets.size()==used.size());
+	if (depth == 1) {
+		int tobecount = 0;
+		for (int i = 0; i < 32; i++)
+			if (tobematch & 1 << i)
+				tobecount++;
+		int cancount = 0;
+		UINT_32 canmatch = 0;
+		for (int i = 0; i < simsets.size(); i++) {
+			canmatch |= simsets[i];
+			if (tobematch & simsets[i])
+				cancount++;
+		}
+		if (cancount < tobecount) {
+			return false;
+		}
+		if (tobematch & (~canmatch)) {
+			return false;
+		}
+	}
+	int i = 0;
+	for (i = 0; i < 32; i++) {
+		if (tobematch & 1 << i) {
+			break;
+		}
+	}
+	if (tobematch & 1 << i) { //fiind a match for i
+		for (int j = 0; j < used.size(); j++) {
+			if ((!used[j]) && ((1 << i) & simsets[j])) {
+				used[j] = true;
+				bool matched = o2oMatch(tobematch & (~((UINT_32) 1 << i)),
+						simsets, used, depth + 1);
+				used[j] = false;
+				if (matched)
+					return true;
+			}
+		}
+		return false;
+	} else {
+		return true;
+	}
+}
 class CCVertex_pregel: public Vertex<VertexID, CCValue_pregel, Msg_pregel> {
 public:
 	void broadcast(UINT_32 simset) {
@@ -173,6 +216,24 @@ public:
 						}
 					}
 
+					for(set<char>::iterator it=qnlabels.begin();it!=qnlabels.end();it++){
+						//for each label, set up to be match
+						UINT_32 tobematch;
+						for(int j=0;j<q.inEdges[i].size();j++){
+							if(*it==q.labels[q.inEdges[i][j]]){
+								tobematch |= 1<<q.inEdges[i][j];
+							}
+						}
+
+						for(int j=0;j<q.outEdges[i].size();j++){
+							if(*it==q.labels[q.outEdges[i][j]]){
+								tobematch |= 1<<q.outEdges[i][j];
+							}
+						}
+
+
+
+					}
 
 				}
 			}
