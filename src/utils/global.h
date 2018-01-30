@@ -10,6 +10,7 @@
 #define hash_map __gnu_cxx::hash_map
 #define hash_set __gnu_cxx::hash_set
 #include <assert.h> //for ease of debug
+#include "bitmapop.h"
 using namespace std;
 
 

@@ -11,7 +11,7 @@ typedef unsigned char UINT_8;
 
 struct Msg_pregel {
 	VertexID id;
-	UINT_32 simset=0;
+	UINT_32 simset = 0;
 	char label;
 };
 
@@ -120,7 +120,6 @@ public:
 				it != inbs.end(); it++) {
 			send_message(it->first, msg);
 		}
-
 	}
 
 	void Vnormalcompute(MessageContainer & messages) {
@@ -131,12 +130,10 @@ public:
 			if (simsetStack.size() > 1) {
 				simsetStack[simsetStack.size() - 1] =
 						simsetStack[simsetStack.size() - 2];
-			}else{
+			} else {
 				simsetStack[simsetStack.size() - 1] = 0;
 			}
-
 			UINT_32 & simset = simsetStack[simsetStack.size() - 1];
-
 			vector<int> & partialSupp = partialSuppStack[partialSuppStack.size()
 					- 1];
 
@@ -202,7 +199,33 @@ public:
 //					simset &= ~(1 < gspanMsg.toid);
 //				}
 			}
-
+//			{ //debug
+//				ST("id:%d simset:%s\n", this->id,
+//						zjh::bitmap2string(simset).c_str());
+//				if (gspanMsg.fromlabel == 'c' && gspanMsg.tolabel == 'd'
+//						&& id == 2) {
+//					printf("outNeighbor:#%d \n", value().outNeighbors.size());
+//					for (map<VertexID, Msg_pregel>::iterator it =
+//							value().outNeighbors.begin();
+//							it != value().outNeighbors.end(); it++) {
+//						printf("(id %d,lb %d,simset %s) \n", it->first,
+//								it->second.label,
+//								zjh::bitmap2string(it->second.simset).c_str());
+////						printf("(id %d,lb %d,simset %s) \n", it->first,
+////								it->second.label,"");
+//					}
+//					printf("\n");
+//					printf("inNeighbor:#%d \n", value().inNeighbors.size());
+//					for (map<VertexID, Msg_pregel>::iterator it =
+//							value().inNeighbors.begin();
+//							it != value().inNeighbors.end(); it++) {
+//						printf("(id %d,lb %d,simset %s)\n", it->first,
+//								it->second.label,
+//								zjh::bitmap2string(it->second.simset).c_str());
+//					}
+//					printf("\n");
+//				}
+//			}
 			// setup the bitmap_msg
 			bool updated = false;
 			for (int i = 0; i < q.labels.size(); i++) {
@@ -292,6 +315,8 @@ public:
 				}
 			}
 
+//			ST("id:%d simset:%s\n", this->id,
+//					zjh::bitmap2string(simset).c_str());
 			if (updated) {
 				broadcast(simset);
 			}
@@ -315,10 +340,10 @@ public:
 			for (int i = 0; i < messages.size(); i++) {
 				if (messages[i].simset & 1 << 31) {
 					outNeighborUpdated = true;
-					value().outNeighbors[messages[i].id] = messages[i];
+					value().outNeighbors[messages[i].id].simset = messages[i].simset & (~(1<<31));
 				} else {
 					inNeighborUpdated = true;
-					value().inNeighbors[messages[i].id] = messages[i];
+					value().inNeighbors[messages[i].id].simset = messages[i].simset;
 				}
 			}
 			/*
@@ -414,7 +439,6 @@ public:
 					simset &= ~(1 << i);
 					partialSupp[i]--;
 					updated = true;
-
 				}
 			}
 
