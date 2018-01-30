@@ -91,10 +91,13 @@ void processgspanMsg() {
 	//used to tell the new add vertexes.
 	if (edges.size() > 1) {
 		Simmsg &e = edges[edges.size() - 2];
-		if (gspanMsg.fromid <= std::max(e.fromid, e.toid))
-			gspanMsg.fromlabel == -1;
-		if (gspanMsg.toid <= std::max(e.fromid, e.toid))
-			gspanMsg.toid == -1;
+		if (gspanMsg.fromid <= std::max(e.fromid, e.toid)){
+//			ST("!!!!!!(%d:%d, %d:%d)\n",gspanMsg.fromid,gspanMsg.fromlabel,gspanMsg.toid,gspanMsg.tolabel);
+			gspanMsg.fromlabel = -1;
+		}
+		if (gspanMsg.toid <= std::max(e.fromid, e.toid)){
+			gspanMsg.tolabel = -1;
+		}
 	}
 
 	//process partialSuppStack
@@ -447,8 +450,6 @@ public:
 		if (get_worker_id() == MASTER_RANK){
 			printf("\n====================enter loopsim======================\n");
 
-			printf("gspanMSG: (%d:%d, %d,%d)\n",gspanMsg.fromid,gspanMsg.fromlabel,gspanMsg.toid,gspanMsg.tolabel);
-
 			setBit(Query_Mutated);
 		}
 		setBit(WAKE_ALL_ORBIT);
@@ -480,6 +481,9 @@ public:
 //							gspanMsg.tolabel);
 				}
 				processgspanMsg();
+				if(get_worker_id() == MASTER_RANK){
+					printf("gspanMSG: (%d:%d, %d,%d)\n",gspanMsg.fromid,gspanMsg.fromlabel,gspanMsg.toid,gspanMsg.tolabel);
+				}
 				mutated = true;
 			} else {
 				mutated = false;
@@ -599,7 +603,7 @@ public:
 			ST("loop start\n");
 			StartTimer(GSPAN_TIMER);
 #ifdef little
-			gspan.run(2, 1, 2, false, false, true);
+			gspan.run(2, 1, 3, false, false, true);
 #else
 			gspan.run(minsup, 1, 6, false, false, true);
 #endif

@@ -199,6 +199,10 @@ public:
 //					simset &= ~(1 < gspanMsg.toid);
 //				}
 			}
+			{//debug
+			ST("id:%d simset:%s\n", this->id,
+					zjh::bitmap2string(simset).c_str());
+			}
 //			{ //debug
 //				ST("id:%d simset:%s\n", this->id,
 //						zjh::bitmap2string(simset).c_str());
@@ -314,9 +318,10 @@ public:
 					updated = true;
 				}
 			}
-
-//			ST("id:%d simset:%s\n", this->id,
-//					zjh::bitmap2string(simset).c_str());
+			{//debug
+			ST("id:%d simset:%s\n", this->id,
+					zjh::bitmap2string(simset).c_str());
+			}
 			if (updated) {
 				broadcast(simset);
 			}
