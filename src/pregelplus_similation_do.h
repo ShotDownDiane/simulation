@@ -11,7 +11,7 @@ typedef unsigned char UINT_8;
 
 struct Msg_pregel {
 	VertexID id;
-	UINT_32 simset;
+	UINT_32 simset=0;
 	char label;
 };
 
@@ -109,14 +109,16 @@ public:
 		msg.id = value().id;
 		msg.simset = simset;
 
-		map<VertexID,Msg_pregel> & onbs = value().outNeighbors;
-		for(map<VertexID,Msg_pregel>::iterator it=onbs.begin();it!=onbs.end();it++){
-			send_message(it->first,msg);
+		map<VertexID, Msg_pregel> & onbs = value().outNeighbors;
+		for (map<VertexID, Msg_pregel>::iterator it = onbs.begin();
+				it != onbs.end(); it++) {
+			send_message(it->first, msg);
 		}
 		msg.simset = msg.simset | 1 << 31;
-		map<VertexID,Msg_pregel> & inbs = value().inNeighbors;
-		for(map<VertexID,Msg_pregel>::iterator it=inbs.begin();it!=inbs.end();it++){
-			send_message(it->first,msg);
+		map<VertexID, Msg_pregel> & inbs = value().inNeighbors;
+		for (map<VertexID, Msg_pregel>::iterator it = inbs.begin();
+				it != inbs.end(); it++) {
+			send_message(it->first, msg);
 		}
 
 	}
@@ -428,18 +430,20 @@ public:
 
 			for (map<VertexID, Msg_pregel>::iterator it = onbs.begin();
 					it != onbs.end(); it++) {
-				send_message(it->first, it->second);
+				send_message(it->first, msg);
 			}
 
 			map<VertexID, Msg_pregel> & inbs = value().inNeighbors;
 			msg.simset |= 1 << 31;
 			for (map<VertexID, Msg_pregel>::iterator it = inbs.begin();
 					it != inbs.end(); it++) {
-				send_message(it->first, it->second);
+				send_message(it->first, msg);
 			}
 
 		} else if (preprocessSuperstep == 2) {
-			//summarize the edge frequency in this partition
+			/*summarize the edge frequency in this partition
+			 * and distribute the label to neighbors
+			 */
 			for (MessageContainer::iterator it = messages.begin();
 					it != messages.end(); ++it) {
 				if (it->simset & 1 << 31) { //from outNeighbors
@@ -450,6 +454,36 @@ public:
 					edgeFrequent[value().label][it->simset]++;
 				}
 			}
+
+//			{//debug
+//				CCVertex_pregel * v = this;
+//				printf("vid:%d vl:%c ", v->id, v->value().label);
+//				printf("outDegree:%d ", v->value().outDegree);
+//				assert(v->value().outDegree==v->value().outNeighbors.size());
+//				printf("onbs:");
+//				map<VertexID, Msg_pregel> & onbs = v->value().outNeighbors;
+//				for (map<VertexID, Msg_pregel>::iterator it = onbs.begin();
+//						it != onbs.end(); it++) {
+//					assert(it->first==it->second.id);
+//					printf("%d ", it->first);
+//					printf("%c ",it->second.label);
+//					printf("%u ",it->second.simset);
+//				}
+//
+//				printf("inDegree:%d ", v->value().inDegree);
+//				assert(v->value().inDegree==v->value().inNeighbors.size());
+//				printf("inbs:");
+//				map<VertexID, Msg_pregel> & inbs = v->value().inNeighbors;
+//				for (map<VertexID, Msg_pregel>::iterator it = inbs.begin();
+//						it != inbs.end(); it++) {
+//					assert(it->first==it->second.id);
+//					printf("%d ", it->first);
+//					printf("%c ",it->second.label);
+//					printf("%u ",it->second.simset);
+//				}
+//				printf("\n");
+//			}
+
 		}
 		vote_to_halt();
 	}
@@ -561,6 +595,31 @@ public:
 			nb.id = atoi(pch);
 			v->value().inNeighbors[nb.id] = nb;
 		}
+//		{ //debug
+//			printf("vid:%d vl:%c ", v->id, v->value().label);
+//			printf("outDegree:%d ", v->value().outDegree);
+//			printf("onbs:");
+//			map<VertexID, Msg_pregel> & onbs = v->value().outNeighbors;
+//			for (map<VertexID, Msg_pregel>::iterator it = onbs.begin();
+//					it != onbs.end(); it++) {
+//				assert(it->first==it->second.id);
+////				printf("%d ",it->second);
+//				printf("%d ", it->first);
+//			}
+//
+//			printf("inDegree:%d ", v->value().inDegree);
+//			printf("inNebSize:%d ", v->value().inNeighbors.size());
+//			printf("inbs:");
+//			map<VertexID, Msg_pregel> & inbs = v->value().inNeighbors;
+//			for (map<VertexID, Msg_pregel>::iterator it = inbs.begin();
+//					it != inbs.end(); it++) {
+//				assert(it->first==it->second.id);
+////				printf("%d ",it->second);
+//				printf("%d ", it->first);
+//			}
+//			printf("\n");
+//		}
+
 		return v;
 	}
 

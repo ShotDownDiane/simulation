@@ -597,7 +597,7 @@ public:
 			ST("loop start\n");
 			StartTimer(GSPAN_TIMER);
 #ifdef little
-			gspan.run(2, 1, 7, false, false, true);
+			gspan.run(2, 1, 2, false, false, true);
 #else
 			gspan.run(minsup, 1, 6, false, false, true);
 #endif
