@@ -88,7 +88,6 @@ void processgspanMsg() {
 	leastprematchcounts=leastmatchcounts[0];
 	leastsucmatchcounts=leastmatchcounts[1];
 
-
 	//used to tell the new add vertexes.
 	if (edges.size() > 1) {
 		Simmsg &e = edges[edges.size() - 2];
@@ -447,6 +446,9 @@ public:
 		long long step_vadd_num;
 		if (get_worker_id() == MASTER_RANK){
 			printf("\n====================enter loopsim======================\n");
+
+			printf("gspanMSG: (%d:%d, %d,%d)\n",gspanMsg.fromid,gspanMsg.fromlabel,gspanMsg.toid,gspanMsg.tolabel);
+
 			setBit(Query_Mutated);
 		}
 		setBit(WAKE_ALL_ORBIT);

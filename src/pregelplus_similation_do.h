@@ -126,11 +126,13 @@ public:
 	void Vnormalcompute(MessageContainer & messages) {
 		vector<UINT_32> &simsetStack = value().simsetStack;
 		if (mutated) {
-			//first, simcountStack and simsetStack
+			//first, simsetStack
 			simsetStack.resize(edges.size());
 			if (simsetStack.size() > 1) {
 				simsetStack[simsetStack.size() - 1] =
 						simsetStack[simsetStack.size() - 2];
+			}else{
+				simsetStack[simsetStack.size() - 1] = 0;
 			}
 
 			UINT_32 & simset = simsetStack[simsetStack.size() - 1];
@@ -186,17 +188,19 @@ public:
 				if (value().label == gspanMsg.fromlabel) {
 					simset |= 1 << gspanMsg.fromid;
 					partialSupp[gspanMsg.fromid]++;
-				} else {
-					simset &= ~(1 << gspanMsg.fromid);
 				}
+//				else {
+//					simset &= ~(1 << gspanMsg.fromid);
+//				}
 			}
 			if (gspanMsg.tolabel != -1) {
 				if (value().label == gspanMsg.tolabel) {
 					simset |= 1 << gspanMsg.toid;
 					partialSupp[gspanMsg.toid]++;
-				} else {
-					simset &= ~(1 < gspanMsg.toid);
 				}
+//				else {
+//					simset &= ~(1 < gspanMsg.toid);
+//				}
 			}
 
 			// setup the bitmap_msg
@@ -410,6 +414,7 @@ public:
 					simset &= ~(1 << i);
 					partialSupp[i]--;
 					updated = true;
+
 				}
 			}
 
