@@ -93,9 +93,9 @@ void processgspanMsg() {
 	if (edges.size() > 1) {
 		Simmsg &e = edges[edges.size() - 2];
 		if (gspanMsg.fromid <= std::max(e.fromid, e.toid))
-			gspanMsg.fromlabel == -1;
+			gspanMsg.fromlabel = -1;
 		if (gspanMsg.toid <= std::max(e.fromid, e.toid))
-			gspanMsg.toid == -1;
+			gspanMsg.tolabel = -1;
 	}
 
 	//process partialSuppStack
