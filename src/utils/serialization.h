@@ -55,6 +55,12 @@ ibinstream& operator<<(ibinstream& m, int i)
     return m;
 }
 
+ibinstream& operator<<(ibinstream& m, unsigned int i)
+{
+    m.raw_bytes(&i, sizeof(unsigned int));
+    return m;
+}
+
 ibinstream& operator<<(ibinstream& m, double i)
 {
     m.raw_bytes(&i, sizeof(double));
@@ -195,6 +201,12 @@ obinstream& operator>>(obinstream& m, bool& i)
 obinstream& operator>>(obinstream& m, int& i)
 {
     i = *(int*)m.raw_bytes(sizeof(int));
+    return m;
+}
+
+obinstream& operator>>(obinstream& m, unsigned int& i)
+{
+    i = *(unsigned int*)m.raw_bytes(sizeof(unsigned int));
     return m;
 }
 
