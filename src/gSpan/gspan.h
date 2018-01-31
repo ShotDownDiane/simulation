@@ -50,6 +50,12 @@
  */
 #define little 1
 
+#define debug
+#ifdef debug
+//#define debug1 //20180131
+
+
+#endif
 
 
 

@@ -228,7 +228,12 @@ public:
 					}
 				}
 			}
-
+#ifdef debug1
+			{//debug
+				ST("id:%d simsetStark[%d]:%s\n", this->id,simsetStack.size() - 1,
+						zjh::bitmap2string(simset).c_str());
+			}
+#endif
 			//initial simset and increment the partialSupport
 			if (gspanMsg.fromlabel != -1) {
 				if (value().label == gspanMsg.fromlabel) {
@@ -243,11 +248,12 @@ public:
 					simset |= 1 << gspanMsg.toid;
 					partialSupp[gspanMsg.toid]++;
 				} else {
-					simset &= ~(1 < gspanMsg.toid);
+					simset &= ~(1 << gspanMsg.toid);
 				}
 			}
+#ifdef debug1
 			{ //debug
-				ST("id:%d simset:%s\n", this->id,
+				ST("id:%d simsetStark[%d]:%s\n", this->id,simsetStack.size() - 1,
 						zjh::bitmap2string(simset).c_str());
 				if ((id == 1 || id == 7) && gspanMsg.fromid == 0
 						&& gspanMsg.fromlabel==-1 &&gspanMsg.toid==2
@@ -274,6 +280,7 @@ public:
 					printf("\n");
 				}
 			}
+#endif
 			// setup the bitmap_msg
 			bool updated = false;
 			for (int i = 0; i < q.labels.size(); i++) {
@@ -366,10 +373,12 @@ public:
 					updated = true;
 				}
 			}
+#ifdef debug1
 			{ //debug
-				ST("id:%d simset:%s\n", this->id,
+				ST("id:%d simsetStark[%d]:%s\n", this->id,simsetStack.size() - 1,
 						zjh::bitmap2string(simset).c_str());
 			}
+#endif
 			if (updated) {
 				broadcast(simset);
 			}
