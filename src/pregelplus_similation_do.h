@@ -15,15 +15,21 @@ struct Msg_pregel {
 	char label;
 };
 
+struct Neib_pregel {
+	VertexID id;
+	vector<UINT_32> simsetStack;
+	char label;
+};
+
 struct CCValue_pregel {
 	char label;
 	int id;
 	int inDegree;
 //	vector<Msg_pregel> inNeighbors;
-	map<VertexID, Msg_pregel> inNeighbors;
+	map<VertexID, Neib_pregel> inNeighbors;
 	int outDegree;
 //	vector<Msg_pregel> outNeighbors;
-	map<VertexID, Msg_pregel> outNeighbors;
+	map<VertexID, Neib_pregel> outNeighbors;
 
 	vector<UINT_32> simsetStack;
 };
@@ -36,6 +42,14 @@ ibinstream & operator<<(ibinstream & m, const Msg_pregel & msg) {
 obinstream & operator>>(obinstream & m, Msg_pregel & msg) {
 	m >> msg.id;
 	m >> msg.simset;
+}
+
+ibinstream & operator<<(ibinstream & m, const Neib_pregel & msg) {
+	m << msg.id;
+}
+
+obinstream & operator>>(obinstream & m, Neib_pregel & msg) {
+	m >> msg.id;
 }
 
 ibinstream & operator<<(ibinstream & m, const CCValue_pregel & v) {
@@ -102,6 +116,7 @@ bool o2oMatch(UINT_32 tobematch, vector<UINT_32> & simsets, vector<bool> & used,
 		return true;
 	}
 }
+
 class CCVertex_pregel: public Vertex<VertexID, CCValue_pregel, Msg_pregel> {
 public:
 	void broadcast(UINT_32 simset) {
@@ -109,14 +124,14 @@ public:
 		msg.id = value().id;
 		msg.simset = simset;
 
-		map<VertexID, Msg_pregel> & onbs = value().outNeighbors;
-		for (map<VertexID, Msg_pregel>::iterator it = onbs.begin();
+		map<VertexID, Neib_pregel> & onbs = value().outNeighbors;
+		for (map<VertexID, Neib_pregel>::iterator it = onbs.begin();
 				it != onbs.end(); it++) {
 			send_message(it->first, msg);
 		}
 		msg.simset = msg.simset | 1 << 31;
-		map<VertexID, Msg_pregel> & inbs = value().inNeighbors;
-		for (map<VertexID, Msg_pregel>::iterator it = inbs.begin();
+		map<VertexID, Neib_pregel> & inbs = value().inNeighbors;
+		for (map<VertexID, Neib_pregel>::iterator it = inbs.begin();
 				it != inbs.end(); it++) {
 			send_message(it->first, msg);
 		}
@@ -125,7 +140,7 @@ public:
 	void Vnormalcompute(MessageContainer & messages) {
 		vector<UINT_32> &simsetStack = value().simsetStack;
 		if (mutated) {
-			//first, simsetStack
+			//first, simsetStack and neighbors simsetStack
 			simsetStack.resize(edges.size());
 			if (simsetStack.size() > 1) {
 				simsetStack[simsetStack.size() - 1] =
@@ -133,49 +148,83 @@ public:
 			} else {
 				simsetStack[simsetStack.size() - 1] = 0;
 			}
+
+			for (map<VertexID, Neib_pregel>::iterator it =
+					value().outNeighbors.begin();
+					it != value().outNeighbors.end(); it++) {
+				it->second.simsetStack.resize(edges.size());
+				if (edges.size() > 1) {
+					it->second.simsetStack[edges.size() - 1] =
+							it->second.simsetStack[edges.size() - 2];
+				} else {
+					it->second.simsetStack[edges.size() - 1] = 0;
+				}
+			}
+
+			for (map<VertexID, Neib_pregel>::iterator it =
+					value().inNeighbors.begin();
+					it != value().inNeighbors.end(); it++) {
+				it->second.simsetStack.resize(edges.size());
+				if (edges.size() > 1) {
+					it->second.simsetStack[edges.size() - 1] =
+							it->second.simsetStack[edges.size() - 2];
+				} else {
+					it->second.simsetStack[edges.size() - 1] = 0;
+				}
+			}
+
+			//alias
 			UINT_32 & simset = simsetStack[simsetStack.size() - 1];
 			vector<int> & partialSupp = partialSuppStack[partialSuppStack.size()
 					- 1];
 
 //			update the in and out neighbors' simsets only according to the label of the neighbors
 			if (gspanMsg.fromlabel != -1) {
-				for (map<VertexID, Msg_pregel>::iterator it =
+				for (map<VertexID, Neib_pregel>::iterator it =
 						value().outNeighbors.begin();
 						it != value().outNeighbors.end(); it++) {
 					if (it->second.label == gspanMsg.fromlabel) {
-						it->second.simset |= 1 << gspanMsg.fromid;
+						it->second.simsetStack[edges.size() - 1] |= 1
+								<< gspanMsg.fromid;
 					} else {
-						it->second.simset &= ~(1 << gspanMsg.fromid);
+						it->second.simsetStack[edges.size() - 1] &= ~(1
+								<< gspanMsg.fromid);
 					}
 				}
-				for (map<VertexID, Msg_pregel>::iterator it =
+				for (map<VertexID, Neib_pregel>::iterator it =
 						value().inNeighbors.begin();
 						it != value().inNeighbors.end(); it++) {
 					if (it->second.label == gspanMsg.fromlabel) {
-						it->second.simset |= 1 << gspanMsg.fromid;
+						it->second.simsetStack[edges.size() - 1] |= 1
+								<< gspanMsg.fromid;
 					} else {
-						it->second.simset &= ~(1 << gspanMsg.fromid);
+						it->second.simsetStack[edges.size() - 1] &= ~(1
+								<< gspanMsg.fromid);
 					}
 				}
 			}
 
 			if (gspanMsg.tolabel != -1) {
-				for (map<VertexID, Msg_pregel>::iterator it =
+				for (map<VertexID, Neib_pregel>::iterator it =
 						value().outNeighbors.begin();
 						it != value().outNeighbors.end(); it++) {
 					if (it->second.label == gspanMsg.tolabel) {
-						it->second.simset |= 1 << gspanMsg.toid;
+						it->second.simsetStack[edges.size() - 1] |= 1
+								<< gspanMsg.toid;
 					} else {
-						it->second.simset &= ~(1 << gspanMsg.toid);
+						it->second.simsetStack[edges.size() - 1] &= ~(1
+								<< gspanMsg.toid);
 					}
 				}
-				for (map<VertexID, Msg_pregel>::iterator it =
+				for (map<VertexID, Neib_pregel>::iterator it =
 						value().inNeighbors.begin();
 						it != value().inNeighbors.end(); it++) {
 					if (it->second.label == gspanMsg.tolabel) {
-						it->second.simset |= 1 << gspanMsg.toid;
+						it->second.simsetStack[edges.size() - 1] |= 1
+								<< gspanMsg.toid;
 					} else {
-						it->second.simset &= ~(1 << gspanMsg.toid);
+						it->second.simsetStack[edges.size() - 1] &= ~(1
+								<< gspanMsg.toid);
 					}
 				}
 			}
@@ -185,51 +234,46 @@ public:
 				if (value().label == gspanMsg.fromlabel) {
 					simset |= 1 << gspanMsg.fromid;
 					partialSupp[gspanMsg.fromid]++;
+				} else {
+					simset &= ~(1 << gspanMsg.fromid);
 				}
-//				else {
-//					simset &= ~(1 << gspanMsg.fromid);
-//				}
 			}
 			if (gspanMsg.tolabel != -1) {
 				if (value().label == gspanMsg.tolabel) {
 					simset |= 1 << gspanMsg.toid;
 					partialSupp[gspanMsg.toid]++;
+				} else {
+					simset &= ~(1 < gspanMsg.toid);
 				}
-//				else {
-//					simset &= ~(1 < gspanMsg.toid);
-//				}
 			}
-			{//debug
-			ST("id:%d simset:%s\n", this->id,
-					zjh::bitmap2string(simset).c_str());
+			{ //debug
+				ST("id:%d simset:%s\n", this->id,
+						zjh::bitmap2string(simset).c_str());
+				if ((id == 1 || id == 7) && gspanMsg.fromid == 0
+						&& gspanMsg.fromlabel==-1 &&gspanMsg.toid==2
+						&& gspanMsg.tolabel==98) {
+					printf("outNeighbor:#%d \n", value().outNeighbors.size());
+					for (map<VertexID, Neib_pregel>::iterator it =
+							value().outNeighbors.begin();
+							it != value().outNeighbors.end(); it++) {
+						printf("(id %d,lb %d,simset %s) \n", it->first,
+								it->second.label,
+								zjh::bitmap2string(
+										it->second.simsetStack[edges.size() - 1]).c_str());
+					}
+					printf("\n");
+					printf("inNeighbor:#%d \n", value().inNeighbors.size());
+					for (map<VertexID, Neib_pregel>::iterator it =
+							value().inNeighbors.begin();
+							it != value().inNeighbors.end(); it++) {
+						printf("(id %d,lb %d,simset %s)\n", it->first,
+								it->second.label,
+								zjh::bitmap2string(
+										it->second.simsetStack[edges.size() - 1]).c_str());
+					}
+					printf("\n");
+				}
 			}
-//			{ //debug
-//				ST("id:%d simset:%s\n", this->id,
-//						zjh::bitmap2string(simset).c_str());
-//				if (gspanMsg.fromlabel == 'c' && gspanMsg.tolabel == 'd'
-//						&& id == 2) {
-//					printf("outNeighbor:#%d \n", value().outNeighbors.size());
-//					for (map<VertexID, Msg_pregel>::iterator it =
-//							value().outNeighbors.begin();
-//							it != value().outNeighbors.end(); it++) {
-//						printf("(id %d,lb %d,simset %s) \n", it->first,
-//								it->second.label,
-//								zjh::bitmap2string(it->second.simset).c_str());
-////						printf("(id %d,lb %d,simset %s) \n", it->first,
-////								it->second.label,"");
-//					}
-//					printf("\n");
-//					printf("inNeighbor:#%d \n", value().inNeighbors.size());
-//					for (map<VertexID, Msg_pregel>::iterator it =
-//							value().inNeighbors.begin();
-//							it != value().inNeighbors.end(); it++) {
-//						printf("(id %d,lb %d,simset %s)\n", it->first,
-//								it->second.label,
-//								zjh::bitmap2string(it->second.simset).c_str());
-//					}
-//					printf("\n");
-//				}
-//			}
 			// setup the bitmap_msg
 			bool updated = false;
 			for (int i = 0; i < q.labels.size(); i++) {
@@ -269,11 +313,13 @@ public:
 					}
 					//set up simsets and used vector
 					vector<UINT_32> simsets;
-					for (map<VertexID, Msg_pregel>::iterator it =
+					for (map<VertexID, Neib_pregel>::iterator it =
 							value().outNeighbors.begin();
 							it != value().outNeighbors.end(); it++) {
-						if (it->second.simset & tobematch) {
-							simsets.push_back(it->second.simset);
+						if (it->second.simsetStack[edges.size() - 1]
+								& tobematch) {
+							simsets.push_back(
+									it->second.simsetStack[edges.size() - 1]);
 						}
 					}
 					vector<bool> used;
@@ -295,11 +341,13 @@ public:
 
 					//set up simsets and used vector
 					simsets.clear();
-					for (map<VertexID, Msg_pregel>::iterator it =
+					for (map<VertexID, Neib_pregel>::iterator it =
 							value().inNeighbors.begin();
 							it != value().inNeighbors.end(); it++) {
-						if (it->second.simset & tobematch) {
-							simsets.push_back(it->second.simset);
+						if (it->second.simsetStack[edges.size() - 1]
+								& tobematch) {
+							simsets.push_back(
+									it->second.simsetStack[edges.size() - 1]);
 						}
 					}
 
@@ -318,9 +366,9 @@ public:
 					updated = true;
 				}
 			}
-			{//debug
-			ST("id:%d simset:%s\n", this->id,
-					zjh::bitmap2string(simset).c_str());
+			{ //debug
+				ST("id:%d simset:%s\n", this->id,
+						zjh::bitmap2string(simset).c_str());
 			}
 			if (updated) {
 				broadcast(simset);
@@ -345,10 +393,12 @@ public:
 			for (int i = 0; i < messages.size(); i++) {
 				if (messages[i].simset & 1 << 31) {
 					outNeighborUpdated = true;
-					value().outNeighbors[messages[i].id].simset = messages[i].simset & (~(1<<31));
+					value().outNeighbors[messages[i].id].simsetStack[edges.size()
+							- 1] = messages[i].simset & (~(1 << 31));
 				} else {
 					inNeighborUpdated = true;
-					value().inNeighbors[messages[i].id].simset = messages[i].simset;
+					value().inNeighbors[messages[i].id].simsetStack[edges.size()
+							- 1] = messages[i].simset;
 				}
 			}
 			/*
@@ -395,11 +445,13 @@ public:
 							}
 						}
 						//set up simsets and used vector
-						for (map<VertexID, Msg_pregel>::iterator it =
+						for (map<VertexID, Neib_pregel>::iterator it =
 								value().outNeighbors.begin();
 								it != value().outNeighbors.end(); it++) {
-							if (it->second.simset & tobematch) {
-								simsets.push_back(it->second.simset);
+							if (it->second.simsetStack[edges.size() - 1]
+									& tobematch) {
+								simsets.push_back(
+										it->second.simsetStack[edges.size() - 1]);
 							}
 						}
 						used.resize(simsets.size(), false);
@@ -422,11 +474,13 @@ public:
 
 						//set up simsets and used vector
 						simsets.clear();
-						for (map<VertexID, Msg_pregel>::iterator it =
+						for (map<VertexID, Neib_pregel>::iterator it =
 								value().inNeighbors.begin();
 								it != value().inNeighbors.end(); it++) {
-							if (it->second.simset & tobematch) {
-								simsets.push_back(it->second.simset);
+							if (it->second.simsetStack[edges.size() - 1]
+									& tobematch) {
+								simsets.push_back(
+										it->second.simsetStack[edges.size() - 1]);
 							}
 						}
 
@@ -457,19 +511,19 @@ public:
 
 	void Vpreprocessing(MessageContainer & messages) {
 		if (preprocessSuperstep == 1) {
-			map<VertexID, Msg_pregel> & onbs = value().outNeighbors;
+			map<VertexID, Neib_pregel> & onbs = value().outNeighbors;
 			Msg_pregel msg;
 			msg.id = value().id;
 			msg.simset = value().label;
 
-			for (map<VertexID, Msg_pregel>::iterator it = onbs.begin();
+			for (map<VertexID, Neib_pregel>::iterator it = onbs.begin();
 					it != onbs.end(); it++) {
 				send_message(it->first, msg);
 			}
 
-			map<VertexID, Msg_pregel> & inbs = value().inNeighbors;
+			map<VertexID, Neib_pregel> & inbs = value().inNeighbors;
 			msg.simset |= 1 << 31;
-			for (map<VertexID, Msg_pregel>::iterator it = inbs.begin();
+			for (map<VertexID, Neib_pregel>::iterator it = inbs.begin();
 					it != inbs.end(); it++) {
 				send_message(it->first, msg);
 			}
@@ -616,7 +670,7 @@ public:
 #endif
 		pch = strtok(NULL, " "); //outDegree
 		v->value().outDegree = atoi(pch);
-		Msg_pregel nb;
+		Neib_pregel nb;
 		for (int i = 0; i < v->value().outDegree; i++) {
 			pch = strtok(NULL, " "); //neighbor
 			nb.id = atoi(pch);

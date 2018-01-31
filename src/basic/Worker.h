@@ -92,7 +92,6 @@ void processgspanMsg() {
 	if (edges.size() > 1) {
 		Simmsg &e = edges[edges.size() - 2];
 		if (gspanMsg.fromid <= std::max(e.fromid, e.toid)){
-//			ST("!!!!!!(%d:%d, %d:%d)\n",gspanMsg.fromid,gspanMsg.fromlabel,gspanMsg.toid,gspanMsg.tolabel);
 			gspanMsg.fromlabel = -1;
 		}
 		if (gspanMsg.toid <= std::max(e.fromid, e.toid)){
