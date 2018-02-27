@@ -580,7 +580,17 @@ public:
 //				}
 //				printf("\n");
 //			}
+					}else if(preprocessSuperstep == 3){
+						//pruning the vertexes and edges with low supp
 
+			//			map<VertexID, Neib_pregel> inNeighbors=value().outNeighbors;
+			//			value().outNeighbors.clear();
+			//			map<VertexID, Neib_pregel> outNeighbors=value().inNeighbors;
+			//			value().inNeighbors.clear();
+			//
+			//			char label=value().label;
+			//
+			//			for(map<VertexID, Neib_pregel>::iterator it=)
 		}
 		vote_to_halt();
 	}

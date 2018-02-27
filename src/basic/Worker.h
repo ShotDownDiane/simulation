@@ -349,12 +349,13 @@ public:
 		if (get_worker_id() == MASTER_RANK)
 			ST("Enter Preprocess\n");
 		phase = preprocessing;
-
 		if (get_worker_id() == MASTER_RANK)
 			setBit(WAKE_ALL_ORBIT);
-
+		preprocessSuperstep=0;
 		while (true) {
 			preprocessSuperstep++;
+			if(preprocessSuperstep == 3)
+				setBit(WAKE_ALL_ORBIT);
 			//===================
 			char bits_bor = all_bor(global_bor_bitmap);
 			if (getBit(FORCE_TERMINATE_ORBIT, bits_bor) == 1)
