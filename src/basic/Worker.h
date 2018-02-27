@@ -587,13 +587,13 @@ public:
 		StopTimer(WORKER_TIMER);
 		PrintTimer("Load Time", WORKER_TIMER);
 		//finished loading graph.================================
-		init_timers();
+		init_timers();\
 		ResetTimer(WORKER_TIMER);
 		//supersteps
 		global_step_num = 0;
 		//==============================loop start here=========================================
 		GSPAN::gSpan gspan;//initialize gspan and the label set
-		minsup = 20000;
+		minsup = 50;
 		preprocess();
 
 		if (get_worker_id() != MASTER_RANK) {
@@ -604,7 +604,7 @@ public:
 #ifdef little
 			gspan.run(2, 1, 3, false, false, true);
 #else
-			gspan.run(minsup, 1, 6, false, false, true);
+			gspan.run(minsup, 1, 3, false, false, true);
 #endif
 			StopTimer(GSPAN_TIMER);
 //			test();

@@ -48,7 +48,7 @@
 /*
  *the macro little defines if the code is run on the cluster or on the development environment
  */
-#define little 1
+//#define little 1
 
 #define debug
 #ifdef debug
