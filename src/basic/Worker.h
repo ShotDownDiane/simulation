@@ -351,8 +351,7 @@ public:
 		preprocessSuperstep = 0;
 		while (true) {
 			preprocessSuperstep++;
-			if (preprocessSuperstep == 3)
-				setBit(WAKE_ALL_ORBIT);
+
 			//===================
 			char bits_bor = all_bor(global_bor_bitmap);
 			if (getBit(FORCE_TERMINATE_ORBIT, bits_bor) == 1)
@@ -382,66 +381,52 @@ public:
 			to_add.clear();
 			//===================
 			worker_barrier();
-		}
+			// preprocess step
+			if (preprocessSuperstep == 2) {
+				setBit(WAKE_ALL_ORBIT);
+				int edgefrequentarray[labelsetsize * labelsetsize];
+				for (int i = 0; i < labelsetsize * labelsetsize; i++)
+					edgefrequentarray[i] = 0;
 
-		int edgefrequentarray[labelsetsize * labelsetsize];
-		for (int i = 0; i < labelsetsize * labelsetsize; i++)
-			edgefrequentarray[i] = 0;
-
-		for (map<int, map<int, int> >::iterator src = edgeFrequent.begin();
-				src != edgeFrequent.end(); ++src) {
-			for (map<int, int>::iterator dst = src->second.begin();
-					dst != src->second.end(); ++dst) {
+				for (map<int, map<int, int> >::iterator src =
+						edgeFrequent.begin(); src != edgeFrequent.end();
+						++src) {
+					for (map<int, int>::iterator dst = src->second.begin();
+							dst != src->second.end(); ++dst) {
 #ifdef little
-				edgefrequentarray[(src->first - 'a') * labelsetsize + dst->first
-						- 'a'] = dst->second;
+						edgefrequentarray[(src->first - 'a') * labelsetsize
+								+ dst->first - 'a'] = dst->second;
 #else
-				edgefrequentarray[(src->first - 1) * labelsetsize + dst->first
-				- 1] = dst->second;
+						edgefrequentarray[(src->first - 1) * labelsetsize + dst->first
+						- 1] = dst->second;
 #endif
+					}
+				}
+
+				int result[labelsetsize * labelsetsize];
+				//		MPI_Reduce(edgefrequentarray, result, labelsetsize * labelsetsize,
+				//				MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+				MPI_Allreduce(edgefrequentarray, result,
+						labelsetsize * labelsetsize, MPI_INT, MPI_SUM,
+						MPI_COMM_WORLD);
+
+				for (int src = 0; src < labelsetsize; src++) {
+					for (int dst = 0; dst < labelsetsize; dst++) {
+#ifdef little
+						edgeFrequent[src + 'a'][dst + 'a'] = result[src
+								* labelsetsize + dst];
+						if(get_worker_id()==MASTER_RANK)
+							ST("<%c,%c> occurs %d times\n", src + 'a', dst + 'a',
+									edgeFrequent[src + 'a'][dst + 'a']);
+#else
+						edgeFrequent[src+1][dst+1]=result[src*labelsetsize+dst];
+						if (get_worker_id()==MASTER_RANK&&result[i * labelsetsize + j] > minsup)
+						ST("<%d,%d> occurs %d times\n", src + 1, dst + 1,edgeFrequent[src+1][dst+1]);
+#endif
+					}
+				}
 			}
 		}
-
-		int result[labelsetsize * labelsetsize];
-//		MPI_Reduce(edgefrequentarray, result, labelsetsize * labelsetsize,
-//				MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-		MPI_Allreduce(edgefrequentarray, result, labelsetsize * labelsetsize,
-				MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-
-		for (int src = 0; src < labelsetsize; src++) {
-			for (int dst = 0; dst < labelsetsize; dst++) {
-#ifdef little
-				edgeFrequent[src+'a'][dst+'a']=result[src*labelsetsize+dst];
-				ST("<%c,%c> occurs %d times\n", src + 'a', dst + 'a',edgeFrequent[src+'a'][dst+'a']);
-#else
-				edgeFrequent[src+1][dst+1]=result[src*labelsetsize+dst];
-				if (result[i * labelsetsize + j] > minsup)
-					ST("<%d,%d> occurs %d times\n", src + 1, dst + 1,edgeFrequent[src+1][dst+1]);
-#endif
-			}
-		}
-
-
-//		if (get_worker_id() == MASTER_RANK) {
-//			for (int i = 0; i < labelsetsize; i++) {
-//				for (int j = 0; j < labelsetsize; j++) {
-//#ifdef little
-//					ST("<%c,%c> occurs %d times\n", i + 'a', j + 'a',
-//							result[i * labelsetsize + j]);
-//					edgeFrequent[i + 'a'][j + 'a'] =
-//							result[i * labelsetsize + j];
-//#else
-//					if (result[i * labelsetsize + j] > minsup)
-//					ST("<%d,%d> occurs %d times\n", i + 1, j + 1,
-//							result[i * labelsetsize + j]);
-//					edgeFrequent[i + 1][j + 1] = result[i * labelsetsize + j];
-//#endif
-//				}
-//			}
-//		} else {
-//			edgeFrequent.clear();
-//		}
 
 		if (get_worker_id() == MASTER_RANK)
 			ST("Leave Preprocess\n");
@@ -508,7 +493,6 @@ public:
 			} else {
 				mutated = false;
 			}
-
 			get_vnum() = all_sum(vertexes.size());
 			int wakeAll = getBit(WAKE_ALL_ORBIT, bits_bor);
 			if (wakeAll == 0) {
@@ -614,7 +598,7 @@ public:
 		global_step_num = 0;
 		//==============================loop start here=========================================
 		GSPAN::gSpan gspan; //initialize gspan and the label set
-		minsup = 20000;
+		minsup = 2;
 		phase = preprocessing;
 		preprocess();
 		phase = normalcomputing;
@@ -624,7 +608,7 @@ public:
 			ST("loop start\n");
 			StartTimer(GSPAN_TIMER);
 #ifdef little
-			gspan.run(2, 1, 3, false, false, true);
+			gspan.run(minsup, 1, 3, false, false, true);
 #else
 			gspan.run(minsup, 1, 6, false, false, true);
 #endif

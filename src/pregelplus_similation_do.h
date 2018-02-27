@@ -383,7 +383,6 @@ public:
 
 			vote_to_halt();
 		} else {
-
 			//alias here
 			UINT_32 & simset = simsetStack[simsetStack.size() - 1];
 
@@ -561,13 +560,16 @@ public:
 
 			for (map<VertexID, Neib_pregel>::iterator it = onbs.begin();
 					it != onbs.end(); it++) {
-				value().outNeighbors[it->first]=it->second;
+				if (edgeFrequent[label][it->second.label] >= minsup)
+					value().outNeighbors[it->first] = it->second;
 			}
 
 			for (map<VertexID, Neib_pregel>::iterator it = inbs.begin();
 					it != inbs.end(); it++) {
-				value().inNeighbors[it->first]=it->second;
+				if (edgeFrequent[it->second.label][label] >= minsup)
+					value().inNeighbors[it->first] = it->second;
 			}
+
 		}
 		vote_to_halt();
 	}
