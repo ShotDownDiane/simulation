@@ -24,9 +24,7 @@ struct Neib_pregel {
 struct CCValue_pregel {
 	char label;
 	int id;
-	int outDegree;
 	map<VertexID, Neib_pregel> outNeighbors;
-	int inDegree;
 	map<VertexID, Neib_pregel> inNeighbors;
 
 	vector<UINT_32> simsetStack;
@@ -53,9 +51,7 @@ obinstream & operator>>(obinstream & m, Neib_pregel & msg) {
 ibinstream & operator<<(ibinstream & m, const CCValue_pregel & v) {
 	m << v.label;
 	m << v.id;
-	m << v.outDegree;
 	m << v.outNeighbors;
-	m << v.inDegree;
 	m << v.inNeighbors;
 	return m;
 }
@@ -63,9 +59,7 @@ ibinstream & operator<<(ibinstream & m, const CCValue_pregel & v) {
 obinstream & operator>>(obinstream & m, CCValue_pregel & v) {
 	m >> v.label;
 	m >> v.id;
-	m >> v.outDegree;
 	m >> v.outNeighbors;
-	m >> v.inDegree;
 	m >> v.inNeighbors;
 	return m;
 }
@@ -667,16 +661,16 @@ public:
 		v->value().label = atoi(label);
 #endif
 		pch = strtok(NULL, " "); //outDegree
-		v->value().inDegree = atoi(pch);
+		int inDegree = atoi(pch);
 		Neib_pregel nb;
-		for (int i = 0; i < v->value().inDegree; i++) {
+		for (int i = 0; i < inDegree; i++) {
 			pch = strtok(NULL, " "); //neighbor
 			nb.id = atoi(pch);
 			v->value().inNeighbors[nb.id] = nb;
 		}
 		pch = strtok(NULL, " "); //inDegree
-		v->value().outDegree = atoi(pch);
-		for (int i = 0; i < v->value().outDegree; i++) {
+		int outDegree = atoi(pch);
+		for (int i = 0; i < outDegree; i++) {
 			pch = strtok(NULL, " ");
 			nb.id = atoi(pch);
 			v->value().outNeighbors[nb.id] = nb;
