@@ -541,10 +541,10 @@ public:
 			 */
 			for (MessageContainer::iterator it = messages.begin();
 					it != messages.end(); ++it) {
-				if (it->simset & 1 << 31) { //from outNeighbors
+				if (it->simset & 1 << 31) { //from parent
 					it->simset &= ~(1 << 31);
 					value().inNeighbors[it->id].label = it->simset;
-				} else { //from inNeighbors
+				} else { //from child
 					value().outNeighbors[it->id].label = it->simset;
 					edgeFrequent[value().label][it->simset]++;
 				}

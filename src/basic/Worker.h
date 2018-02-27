@@ -60,8 +60,6 @@ bool mutated = false;
 vector<vector<int> > partialSuppStack;
 int supp;
 
-
-
 void processgspanMsg() {
 	edges.resize(gspanMsg.size);
 	edges[gspanMsg.size - 1] = gspanMsg;
@@ -84,17 +82,18 @@ void processgspanMsg() {
 	}
 
 	//add constraint to the children numbers of specific label, the children number must noless than the pattern
-	vector<vector<vector<int> > > leastmatchcounts=leastDualMatchCount(q.labels,q.outEdges,q.inEdges);
-	leastprematchcounts=leastmatchcounts[0];
-	leastsucmatchcounts=leastmatchcounts[1];
+	vector<vector<vector<int> > > leastmatchcounts = leastDualMatchCount(
+			q.labels, q.outEdges, q.inEdges);
+	leastprematchcounts = leastmatchcounts[0];
+	leastsucmatchcounts = leastmatchcounts[1];
 
 	//used to tell the new add vertexes.
 	if (edges.size() > 1) {
 		Simmsg &e = edges[edges.size() - 2];
-		if (gspanMsg.fromid <= std::max(e.fromid, e.toid)){
+		if (gspanMsg.fromid <= std::max(e.fromid, e.toid)) {
 			gspanMsg.fromlabel = -1;
 		}
-		if (gspanMsg.toid <= std::max(e.fromid, e.toid)){
+		if (gspanMsg.toid <= std::max(e.fromid, e.toid)) {
 			gspanMsg.tolabel = -1;
 		}
 	}
@@ -105,12 +104,11 @@ void processgspanMsg() {
 		partialSuppStack[partialSuppStack.size() - 1] =
 				partialSuppStack[partialSuppStack.size() - 2];
 	}
-	partialSuppStack[partialSuppStack.size() - 1].resize(q.labels.size(),0);
+	partialSuppStack[partialSuppStack.size() - 1].resize(q.labels.size(), 0);
 	if (gspanMsg.fromlabel != -1)
 		partialSuppStack[partialSuppStack.size() - 1][gspanMsg.fromid] = 0;
 	if (gspanMsg.tolabel != -1)
 		partialSuppStack[partialSuppStack.size() - 1][gspanMsg.toid] = 0;
-
 
 }
 int curSupp() {
@@ -348,13 +346,12 @@ public:
 	void preprocess() {
 		if (get_worker_id() == MASTER_RANK)
 			ST("Enter Preprocess\n");
-		phase = preprocessing;
 		if (get_worker_id() == MASTER_RANK)
 			setBit(WAKE_ALL_ORBIT);
-		preprocessSuperstep=0;
+		preprocessSuperstep = 0;
 		while (true) {
 			preprocessSuperstep++;
-			if(preprocessSuperstep == 3)
+			if (preprocessSuperstep == 3)
 				setBit(WAKE_ALL_ORBIT);
 			//===================
 			char bits_bor = all_bor(global_bor_bitmap);
@@ -396,36 +393,56 @@ public:
 			for (map<int, int>::iterator dst = src->second.begin();
 					dst != src->second.end(); ++dst) {
 #ifdef little
-				edgefrequentarray[(src->first-'a')*labelsetsize+dst->first-'a']=dst->second;
+				edgefrequentarray[(src->first - 'a') * labelsetsize + dst->first
+						- 'a'] = dst->second;
 #else
 				edgefrequentarray[(src->first - 1) * labelsetsize + dst->first
-						- 1] = dst->second;
+				- 1] = dst->second;
 #endif
 			}
 		}
 
 		int result[labelsetsize * labelsetsize];
-		MPI_Reduce(edgefrequentarray, result, labelsetsize * labelsetsize,
-				MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-		if (get_worker_id() == MASTER_RANK) {
-			for (int i = 0; i < labelsetsize; i++) {
-				for (int j = 0; j < labelsetsize; j++) {
+//		MPI_Reduce(edgefrequentarray, result, labelsetsize * labelsetsize,
+//				MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+		MPI_Allreduce(edgefrequentarray, result, labelsetsize * labelsetsize,
+				MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+
+		for (int src = 0; src < labelsetsize; src++) {
+			for (int dst = 0; dst < labelsetsize; dst++) {
 #ifdef little
-					ST("<%c,%c> occurs %d times\n", i+'a',j+'a',result[i*labelsetsize+j]);
-					edgeFrequent[i+'a'][j+'a'] = result[i * labelsetsize + j];
+				edgeFrequent[src+'a'][dst+'a']=result[src*labelsetsize+dst];
+				ST("<%c,%c> occurs %d times\n", src + 'a', dst + 'a',edgeFrequent[src+'a'][dst+'a']);
 #else
-					if (result[i * labelsetsize + j] > minsup)
-						ST("<%d,%d> occurs %d times\n", i + 1, j + 1,
-								result[i * labelsetsize + j]);
-					edgeFrequent[i + 1][j + 1] = result[i * labelsetsize + j];
+				edgeFrequent[src+1][dst+1]=result[src*labelsetsize+dst];
+				if (result[i * labelsetsize + j] > minsup)
+					ST("<%d,%d> occurs %d times\n", src + 1, dst + 1,edgeFrequent[src+1][dst+1]);
 #endif
-				}
 			}
-		} else {
-			edgeFrequent.clear();
 		}
 
-		phase = normalcomputing;
+
+//		if (get_worker_id() == MASTER_RANK) {
+//			for (int i = 0; i < labelsetsize; i++) {
+//				for (int j = 0; j < labelsetsize; j++) {
+//#ifdef little
+//					ST("<%c,%c> occurs %d times\n", i + 'a', j + 'a',
+//							result[i * labelsetsize + j]);
+//					edgeFrequent[i + 'a'][j + 'a'] =
+//							result[i * labelsetsize + j];
+//#else
+//					if (result[i * labelsetsize + j] > minsup)
+//					ST("<%d,%d> occurs %d times\n", i + 1, j + 1,
+//							result[i * labelsetsize + j]);
+//					edgeFrequent[i + 1][j + 1] = result[i * labelsetsize + j];
+//#endif
+//				}
+//			}
+//		} else {
+//			edgeFrequent.clear();
+//		}
+
 		if (get_worker_id() == MASTER_RANK)
 			ST("Leave Preprocess\n");
 	}
@@ -447,8 +464,9 @@ public:
 	void looponsim() {
 		long long step_msg_num;
 		long long step_vadd_num;
-		if (get_worker_id() == MASTER_RANK){
-			printf("\n====================enter loopsim======================\n");
+		if (get_worker_id() == MASTER_RANK) {
+			printf(
+					"\n====================enter loopsim======================\n");
 
 			setBit(Query_Mutated);
 		}
@@ -481,8 +499,10 @@ public:
 //							gspanMsg.tolabel);
 				}
 				processgspanMsg();
-				if(get_worker_id() == MASTER_RANK){
-					printf("gspanMSG: (%d:%d, %d,%d)\n",gspanMsg.fromid,gspanMsg.fromlabel,gspanMsg.toid,gspanMsg.tolabel);
+				if (get_worker_id() == MASTER_RANK) {
+					printf("gspanMSG: (%d:%d, %d,%d)\n", gspanMsg.fromid,
+							gspanMsg.fromlabel, gspanMsg.toid,
+							gspanMsg.tolabel);
 				}
 				mutated = true;
 			} else {
@@ -593,10 +613,11 @@ public:
 		//supersteps
 		global_step_num = 0;
 		//==============================loop start here=========================================
-		GSPAN::gSpan gspan;//initialize gspan and the label set
+		GSPAN::gSpan gspan; //initialize gspan and the label set
 		minsup = 20000;
+		phase = preprocessing;
 		preprocess();
-
+		phase = normalcomputing;
 		if (get_worker_id() != MASTER_RANK) {
 			looponsim();
 		} else {
