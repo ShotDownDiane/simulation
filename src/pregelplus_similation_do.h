@@ -512,6 +512,8 @@ public:
 	void Vpreprocessing(MessageContainer & messages) {
 		if (preprocessSuperstep == 1) {
 			map<VertexID, Neib_pregel> & inbs = value().inNeighbors;
+			map<VertexID, Neib_pregel> & onbs = value().outNeighbors;
+
 			Msg_pregel msg;
 			msg.id = value().id;
 			msg.simset = value().label;
@@ -521,27 +523,38 @@ public:
 				send_message(it->first, msg);
 			}
 
-			map<VertexID, Neib_pregel> & onbs = value().outNeighbors;
 			msg.simset |= 1 << 31;
+
 			for (map<VertexID, Neib_pregel>::iterator it = onbs.begin();
 					it != onbs.end(); it++) {
 				send_message(it->first, msg);
 			}
-
 		} else if (preprocessSuperstep == 2) {
 			/*summarize the edge frequency in this partition
 			 * and distribute the label to neighbors
 			 */
 			for (MessageContainer::iterator it = messages.begin();
 					it != messages.end(); ++it) {
-				if (it->simset & 1 << 31) { //from parent
+				if (it->simset & 1 << 31) {//from parent
 					it->simset &= ~(1 << 31);
 					value().inNeighbors[it->id].label = it->simset;
-				} else { //from child
+				} else {//from child
 					value().outNeighbors[it->id].label = it->simset;
-					edgeFrequent[value().label][it->simset]++;
 				}
 			}
+
+			set<char> labels;
+			for(map<VertexID,Neib_pregel>::iterator it=value().outNeighbors.begin();
+					it!=value().outNeighbors.end();
+					it++){
+				labels.insert(it->second.label);
+			}
+
+			for(set<char>::iterator it=labels.begin();it!=labels.end();it++){
+				edgeFrequent[value().label][*it]++;
+			}
+
+
 		} else if (preprocessSuperstep == 3) {
 			//pruning the vertexes and edges with low supp
 
