@@ -50,6 +50,7 @@ public:
     }
 
     virtual void compute(MessageContainer& messages) = 0;
+    virtual bool has_neighbor()=0;
     inline ValueT& value()
     {
         return _value;

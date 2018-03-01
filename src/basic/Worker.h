@@ -425,6 +425,20 @@ public:
 #endif
 					}
 				}
+			}else if(preprocessSuperstep == 3){
+				//delete vertexes with low frequency
+				vector<VertexT*> vertexes_tmp=vertexes;
+				vertexes.clear();
+
+				for(typename vector<VertexT*>::iterator it=vertexes_tmp.begin();
+						it!=vertexes_tmp.end();
+						it++){
+					if((*it)->has_neighbor()){
+						vertexes.push_back(*it);
+					}else{
+						delete *it;
+					}
+				}
 			}
 		}
 

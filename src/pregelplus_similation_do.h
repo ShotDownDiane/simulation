@@ -588,6 +588,13 @@ public:
 			Vnormalcompute(messages);
 		}
 	}
+
+	virtual bool has_neighbor(){
+		if((value().inNeighbors.size()+value().outNeighbors.size())>0)
+			return true;
+		else
+			return false;
+	}
 };
 //=============================Aggregator==============================================================================
 struct SimulationPartial {
