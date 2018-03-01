@@ -20,6 +20,8 @@ enum Phase {
 Phase phase = preprocessing;
 //=================preprocessing=====================
 map<int, map<int, int> > edgeFrequent;
+map<int, map<int, int> > src_edgeFrequent;
+map<int, map<int, int> > dst_edgeFrequent;
 int preprocessSuperstep = 0;
 int labelsetsize = 0;
 int minsup = 0;
@@ -385,11 +387,13 @@ public:
 			if (preprocessSuperstep == 2) {
 				setBit(WAKE_ALL_ORBIT);
 				int edgefrequentarray[labelsetsize * labelsetsize];
+				int result[labelsetsize * labelsetsize];
+				//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 				for (int i = 0; i < labelsetsize * labelsetsize; i++)
 					edgefrequentarray[i] = 0;
 
 				for (map<int, map<int, int> >::iterator src =
-						edgeFrequent.begin(); src != edgeFrequent.end();
+						src_edgeFrequent.begin(); src != src_edgeFrequent.end();
 						++src) {
 					for (map<int, int>::iterator dst = src->second.begin();
 							dst != src->second.end(); ++dst) {
@@ -403,9 +407,6 @@ public:
 					}
 				}
 
-				int result[labelsetsize * labelsetsize];
-				//		MPI_Reduce(edgefrequentarray, result, labelsetsize * labelsetsize,
-				//				MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 				MPI_Allreduce(edgefrequentarray, result,
 						labelsetsize * labelsetsize, MPI_INT, MPI_SUM,
 						MPI_COMM_WORLD);
@@ -413,29 +414,92 @@ public:
 				for (int src = 0; src < labelsetsize; src++) {
 					for (int dst = 0; dst < labelsetsize; dst++) {
 #ifdef little
-						edgeFrequent[src + 'a'][dst + 'a'] = result[src
+						src_edgeFrequent[src + 'a'][dst + 'a'] = result[src
 								* labelsetsize + dst];
-						if(get_worker_id()==MASTER_RANK)
-							ST("<%c,%c> occurs %d times\n", src + 'a', dst + 'a',
-									edgeFrequent[src + 'a'][dst + 'a']);
+						if (get_worker_id() == MASTER_RANK)
+							ST("src<%c,%c> occurs %d times\n", src + 'a',
+									dst + 'a',
+									src_edgeFrequent[src + 'a'][dst + 'a']);
 #else
-						edgeFrequent[src+1][dst+1]=result[src*labelsetsize+dst];
-						if (get_worker_id()==MASTER_RANK&&result[i * labelsetsize + j] > minsup)
-						ST("<%d,%d> occurs %d times\n", src + 1, dst + 1,edgeFrequent[src+1][dst+1]);
+						src_edgeFrequent[src+1][dst+1]=result[src*labelsetsize+dst];
+						if (get_worker_id()==MASTER_RANK&&src_edgeFrequent[src+1][dst+1] > minsup)
+						ST("src<%d,%d> occurs %d times\n", src + 1, dst + 1,src_edgeFrequent[src+1][dst+1]);
 #endif
 					}
 				}
-			}else if(preprocessSuperstep == 3){
+				//-----------------------------------------------------------------
+				for (int i = 0; i < labelsetsize * labelsetsize; i++)
+					edgefrequentarray[i] = 0;
+
+				for (map<int, map<int, int> >::iterator src =
+						dst_edgeFrequent.begin(); src != dst_edgeFrequent.end();
+						++src) {
+					for (map<int, int>::iterator dst = src->second.begin();
+							dst != src->second.end(); ++dst) {
+#ifdef little
+						edgefrequentarray[(src->first - 'a') * labelsetsize
+								+ dst->first - 'a'] = dst->second;
+#else
+						edgefrequentarray[(src->first - 1) * labelsetsize + dst->first
+						- 1] = dst->second;
+#endif
+					}
+				}
+
+				MPI_Allreduce(edgefrequentarray, result,
+						labelsetsize * labelsetsize, MPI_INT, MPI_SUM,
+						MPI_COMM_WORLD);
+
+				for (int src = 0; src < labelsetsize; src++) {
+					for (int dst = 0; dst < labelsetsize; dst++) {
+#ifdef little
+						dst_edgeFrequent[src + 'a'][dst + 'a'] = result[src
+								* labelsetsize + dst];
+						if (get_worker_id() == MASTER_RANK)
+							ST("dst<%c,%c> occurs %d times\n", src + 'a',
+									dst + 'a',
+									dst_edgeFrequent[src + 'a'][dst + 'a']);
+#else
+						dst_edgeFrequent[src+1][dst+1]=result[src*labelsetsize+dst];
+						if (get_worker_id()==MASTER_RANK && dst_edgeFrequent[src+1][dst+1] > minsup)
+						ST("dst<%d,%d> occurs %d times\n", src + 1, dst + 1,dst_edgeFrequent[src+1][dst+1]);
+#endif
+					}
+				}
+				//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+				assert(src_edgeFrequent.size()==dst_edgeFrequent.size());
+				for (map<int, map<int, int> >::iterator src =
+						src_edgeFrequent.begin(); src != src_edgeFrequent.end();
+						src++) {
+					assert(
+							src_edgeFrequent[src->first].size()==dst_edgeFrequent[src->first].size());
+					for (map<int, int>::iterator dst = src->second.begin();
+							dst != src->second.end(); dst++) {
+						edgeFrequent[src->first][dst->first] = min(
+								src_edgeFrequent[src->first][dst->first],
+								dst_edgeFrequent[src->first][dst->first]);
+#ifdef little
+						if(get_worker_id()==MASTER_RANK)
+							ST("<%c,%c> occurs %d times\n", src->first + 'a',
+									dst->first + 'a',
+									dst_edgeFrequent[src->first + 'a'][dst->first + 'a']);
+#else
+						if (get_worker_id()==MASTER_RANK && edgeFrequent[src->first+1][dst->first+1] > minsup)
+						ST("<%d,%d> occurs %d times\n", src->first + 1, dst->first + 1,dst_edgeFrequent[src->first+1][dst->first+1]);
+#endif
+					}
+				}
+
+			} else if (preprocessSuperstep == 3) {
 				//delete vertexes with low frequency
-				vector<VertexT*> vertexes_tmp=vertexes;
+				vector<VertexT*> vertexes_tmp = vertexes;
 				vertexes.clear();
 
-				for(typename vector<VertexT*>::iterator it=vertexes_tmp.begin();
-						it!=vertexes_tmp.end();
-						it++){
-					if((*it)->has_neighbor()){
+				for (typename vector<VertexT*>::iterator it =
+						vertexes_tmp.begin(); it != vertexes_tmp.end(); it++) {
+					if ((*it)->has_neighbor()) {
 						vertexes.push_back(*it);
-					}else{
+					} else {
 						delete *it;
 					}
 				}

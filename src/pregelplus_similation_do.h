@@ -542,7 +542,7 @@ public:
 					value().outNeighbors[it->id].label = it->simset;
 				}
 			}
-
+			//src_edgeFreq
 			set<char> labels;
 			for(map<VertexID,Neib_pregel>::iterator it=value().outNeighbors.begin();
 					it!=value().outNeighbors.end();
@@ -551,8 +551,22 @@ public:
 			}
 
 			for(set<char>::iterator it=labels.begin();it!=labels.end();it++){
-				edgeFrequent[value().label][*it]++;
+//				edgeFrequent[value().label][*it]++;
+				src_edgeFrequent[value().label][*it]++;
 			}
+
+			//dst_edgeFreq
+			labels.clear();
+			for(map<VertexID,Neib_pregel>::iterator it=value().inNeighbors.begin();
+					it!=value().inNeighbors.end();
+					it++){
+				labels.insert(it->second.label);
+			}
+
+			for(set<char>::iterator it=labels.begin();it!=labels.end();it++){
+				dst_edgeFrequent[*it][value().label]++;
+			}
+
 
 
 		} else if (preprocessSuperstep == 3) {
