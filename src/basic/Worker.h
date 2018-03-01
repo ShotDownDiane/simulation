@@ -497,6 +497,8 @@ public:
 						delete *it;
 					}
 				}
+				//message buffer need to be reinit
+				message_buffer->reinit(vertexes);
 			}
 		}
 
@@ -536,7 +538,6 @@ public:
 			char bits_bor = all_bor(global_bor_bitmap);
 			if (getBit(FORCE_TERMINATE_ORBIT, bits_bor) == 1)
 				break;
-
 			if (getBit(Query_Mutated, bits_bor) == 1) {
 				if (get_worker_id() == MASTER_RANK) {
 					masterBcast(gspanMsg);
@@ -584,6 +585,7 @@ public:
 				agg->init();
 			//==============================================================================
 			clearBits();
+
 			if (wakeAll == 1) {
 				all_compute();
 			} else {
@@ -670,7 +672,7 @@ public:
 		global_step_num = 0;
 		//==============================loop start here=========================================
 		GSPAN::gSpan gspan; //initialize gspan and the label set
-		minsup = 2;
+		minsup = 50;
 		phase = preprocessing;
 		preprocess();
 		phase = normalcomputing;
@@ -682,7 +684,7 @@ public:
 #ifdef little
 			gspan.run(minsup, 1, 3, false, false, true);
 #else
-			gspan.run(minsup, 1, 6, false, false, true);
+			gspan.run(minsup, 1, 2, false, false, true);
 #endif
 			StopTimer(GSPAN_TIMER);
 //			test();
