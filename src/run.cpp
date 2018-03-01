@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
 #ifdef little
 	pregel_similation("/simgraph3", "/simresult", false);
 #else
-	pregel_similation("/input/twetter/vertexformat", "/output/twetter/simresult", false);
+	pregel_similation("/simgraph5", "/simresult", false);
 #endif
 	worker_finalize();
 	return 0;

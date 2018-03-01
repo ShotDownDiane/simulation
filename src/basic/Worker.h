@@ -422,8 +422,6 @@ public:
 									src_edgeFrequent[src + 'a'][dst + 'a']);
 #else
 						src_edgeFrequent[src+1][dst+1]=result[src*labelsetsize+dst];
-						if (get_worker_id()==MASTER_RANK&&src_edgeFrequent[src+1][dst+1] > minsup)
-						ST("src<%d,%d> occurs %d times\n", src + 1, dst + 1,src_edgeFrequent[src+1][dst+1]);
 #endif
 					}
 				}
@@ -461,31 +459,27 @@ public:
 									dst_edgeFrequent[src + 'a'][dst + 'a']);
 #else
 						dst_edgeFrequent[src+1][dst+1]=result[src*labelsetsize+dst];
-						if (get_worker_id()==MASTER_RANK && dst_edgeFrequent[src+1][dst+1] > minsup)
-						ST("dst<%d,%d> occurs %d times\n", src + 1, dst + 1,dst_edgeFrequent[src+1][dst+1]);
 #endif
 					}
 				}
 				//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 				assert(src_edgeFrequent.size()==dst_edgeFrequent.size());
-				for (map<int, map<int, int> >::iterator src =
-						src_edgeFrequent.begin(); src != src_edgeFrequent.end();
-						src++) {
-					assert(
-							src_edgeFrequent[src->first].size()==dst_edgeFrequent[src->first].size());
-					for (map<int, int>::iterator dst = src->second.begin();
-							dst != src->second.end(); dst++) {
+				for (map<int, map<int, int> >::iterator src =src_edgeFrequent.begin(); src != src_edgeFrequent.end();src++) {
+					assert(src_edgeFrequent[src->first].size()==dst_edgeFrequent[src->first].size());
+					for (map<int, int>::iterator dst = src->second.begin();dst != src->second.end(); dst++) {
 						edgeFrequent[src->first][dst->first] = min(
 								src_edgeFrequent[src->first][dst->first],
 								dst_edgeFrequent[src->first][dst->first]);
+
 #ifdef little
 						if(get_worker_id()==MASTER_RANK)
-							ST("<%c,%c> occurs %d times\n", src->first + 'a',
-									dst->first + 'a',
-									dst_edgeFrequent[src->first + 'a'][dst->first + 'a']);
+							ST("<%c,%c> occurs %d times\n", src->first,
+									dst->first,
+									edgeFrequent[src->first][dst->first]);
 #else
-						if (get_worker_id()==MASTER_RANK && edgeFrequent[src->first+1][dst->first+1] > minsup)
-						ST("<%d,%d> occurs %d times\n", src->first + 1, dst->first + 1,dst_edgeFrequent[src->first+1][dst->first+1]);
+						if (get_worker_id()==MASTER_RANK && edgeFrequent[src->first][dst->first] >= minsup)
+//						if (get_worker_id()==MASTER_RANK)
+							ST("<%d,%d> occurs %d times\n", src->first, dst->first,edgeFrequent[src->first][dst->first]);
 #endif
 					}
 				}
