@@ -262,6 +262,7 @@ void gSpan::project(Projected &projected) {
 			supppasscount = 0;
 	assert(projected.size()==1);
 
+#ifdef SIMULATION
 	//filter if new added edge below frequent
 	DFS& dfstmp = DFS_CODE.back();
 	if (dfstmp.src == 'l') {
@@ -276,6 +277,7 @@ void gSpan::project(Projected &projected) {
 	} else {
 		assert(false);
 	}
+#endif
 
 	/* Check if the pattern is frequent enough.
 	 *
@@ -307,7 +309,17 @@ void gSpan::project(Projected &projected) {
 
 
 #ifdef SIMULATION
+	//maintain the RMVertexes vector
+	RMPath rmpath=DFS_CODE.buildRMPath();
+	RMVertexes.clear();
+	for(RMPath::reverse_iterator it=rmpath.rbegin();it!=rmpath.rend();it++){
+		RMVertexes.push_back(DFS_CODE[*it].from);
+	}
+	if(rmpath.size()>0){
+		RMVertexes.push_back(DFS_CODE[rmpath[0]].to);
+	}
 
+	//maintain gspanMsg
 	supptestcount++;
 	static int reported = 0;
 	reported++;

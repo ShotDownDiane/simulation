@@ -116,6 +116,14 @@ void processgspanMsg() {
 int curSupp() {
 	return supp;
 }
+
+//===========frequent extension constrain==================
+//maintained by gspanImpl, tell which vertexes is on rmpath
+vector<int> RMVertexes;
+
+
+
+
 //----------------------------------------------------------------------------------------------------------------------------------------
 template<class VertexT, class AggregatorT = DummyAgg> //user-defined VertexT
 class Worker {
@@ -672,7 +680,11 @@ public:
 		global_step_num = 0;
 		//==============================loop start here=========================================
 		GSPAN::gSpan gspan; //initialize gspan and the label set
-		minsup = 50;
+#ifdef little
+		minsup=2;
+#else
+		minsup = 30;
+#endif
 		phase = preprocessing;
 		preprocess();
 		phase = normalcomputing;
@@ -684,7 +696,7 @@ public:
 #ifdef little
 			gspan.run(minsup, 1, 3, false, false, true);
 #else
-			gspan.run(minsup, 1, 2, false, false, true);
+			gspan.run(minsup, 1, 3, false, false, true);
 #endif
 			StopTimer(GSPAN_TIMER);
 //			test();
