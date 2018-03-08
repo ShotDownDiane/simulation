@@ -23,6 +23,7 @@ map<int, map<int, int> > edgeFrequent;
 map<int, map<int, int> > src_edgeFrequent;
 map<int, map<int, int> > dst_edgeFrequent;
 int preprocessSuperstep = 0;
+vector<char> labelset_global;
 int labelsetsize = 0;
 int minsup = 0;
 //=================Query graph=========================
@@ -111,7 +112,6 @@ void processgspanMsg() {
 		partialSuppStack[partialSuppStack.size() - 1][gspanMsg.fromid] = 0;
 	if (gspanMsg.tolabel != -1)
 		partialSuppStack[partialSuppStack.size() - 1][gspanMsg.toid] = 0;
-
 }
 int curSupp() {
 	return supp;
@@ -121,8 +121,93 @@ int curSupp() {
 //maintained by gspanImpl, tell which vertexes is on rmpath
 vector<int> RMVertexes;
 
+//variables distributed on each worker
+map<int, map<int, int> > ext_e_src_freq;
+map<int, map<int, int> > ext_e_dst_freq;
+map<int, map<char, map<char, int> > > ext_v_src_freq;
+map<int, map<char, map<char, int> > > ext_v_dst_freq;
+
+//variables maintained by master
+vector<map<int, map<int, int> > > ext_e_freq_stack; //stack -> srcid -> dstid -> freq
+vector<map<int, map<char, map<char, int> > > > ext_v_freq_stack; //stack -> RMpathvertexid -> lalbel -> src(direction) -> freq
+
+//executed after each super step
+void superstep_postprocess() {
+	map<int, map<int, int> > & ext_e_freq=ext_e_freq_stack[ext_e_freq_stack.size()-1];
+	map<int, map<char, map<char, int> > > & ext_v_freq=ext_v_freq_stack[ext_v_freq_stack.size()-1];
+
+	int mpi_msg_size=RMVertexes.size()*RMVertexes.size()*2+RMVertexes.size()*labelsetsize*2*2;
+	int mpi_send[mpi_msg_size];
+	int mpi_receive[mpi_msg_size];
+
+	for(int i=0;i<mpi_msg_size;i++){
+		mpi_send[i]=0;
+		mpi_receive[i]=0;
+	}
+
+	//prepare ext_e_src_freq to be send
+	int offset=0;
+	for(int i=0;i<RMVertexes.size();i++){
+		if(ext_e_src_freq.find(RMVertexes[i])==ext_e_src_freq.end())continue;
+
+		for(int j=0;j<RMVertexes.size();i++){
+			if(i==j)continue;
+			if(ext_e_src_freq[RMVertexes[i]].find(RMVertexes[j])==ext_e_src_freq[RMVertexes[i]].end())continue;
+
+			mpi_send[offset+RMVertexes.size()*i+j]=ext_e_src_freq[RMVertexes[i]][RMVertexes[j]];
+		}
+	}
+	//prepare ext_e_dst_freq to be send
+	offset=RMVertexes.size()*RMVertexes.size();
+	for(int i=0;i<RMVertexes.size();i++){
+		if(ext_e_dst_freq.find(RMVertexes[i])==ext_e_dst_freq.end())continue;
+
+		for(int j=0;j<RMVertexes.size();j++){
+			if(i==j)continue;
+			if(ext_e_dst_freq[RMVertexes[i]].find(RMVertexes[j])==ext_e_dst_freq[RMVertexes[i]].end())continue;
+
+			mpi_send[offset+RMVertexes.size()*i+j]=ext_e_dst_freq[RMVertexes[i]][RMVertexes[j]];
+		}
+	}
+	//prepare ext_v_src_freq
+	vector<char> src_pos;
+	src_pos.push_back('l');
+	src_pos.push_back('r');
+	offset=RMVertexes.size()*RMVertexes.size()*2;
+	for(int i=0;i<RMVertexes.size();i++){
+		if(ext_v_src_freq.find(RMVertexes[i])==ext_v_src_freq.end())continue;
+		for(int j=0;j<labelset_global.size();j++){
+			if(ext_v_src_freq[RMVertexes[i]].find(labelset_global[j])==ext_v_src_freq[RMVertexes[i]].end())continue;
+			for(int k=0;k<src_pos.size();k++){
+				if(ext_v_src_freq[RMVertexes[i]][labelset_global[j]].find(src_pos[k])==ext_v_src_freq[RMVertexes[i]][labelset_global[j]].end())continue;
+
+				mpi_send[offset+src_pos.size()*labelset_global.size()*i+src_pos.size()*j+k]=ext_v_src_freq[RMVertexes[i]][labelset_global[j]][src_pos[k]];
+			}
+		}
+	}
+	//prepare ext_v_dst_freq
+	offset=RMVertexes.size()*RMVertexes.size()*2+RMVertexes.size()*labelset_global.size()*src_pos.size();
+	for(int i=0;i<RMVertexes.size();i++){
+		if(ext_v_dst_freq.find(RMVertexes[i])==ext_v_dst_freq.end())continue;
+		for(int j=0;j<labelset_global.size();j++){
+			if(ext_v_dst_freq[RMVertexes[i]].find(labelset_global[j])==ext_v_dst_freq[RMVertexes[i]].end())continue;
+			for(int k=0;k<src_pos.size();k++){
+				if(ext_v_dst_freq[RMVertexes[i]][labelset_global[j]].find(src_pos[k])==ext_v_dst_freq[RMVertexes[i]][labelset_global[j]].end())continue;
+
+				mpi_send[offset+src_pos.size()*labelset_global.size()*i+src_pos.size()*j+k]=ext_v_dst_freq[RMVertexes[i]][labelset_global[j]][src_pos[k]];
+			}
+		}
+	}
+
+	MPI_Reduce(mpi_send, mpi_receive, mpi_msg_size,MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
 
+
+
+
+
+
+}
 
 //----------------------------------------------------------------------------------------------------------------------------------------
 template<class VertexT, class AggregatorT = DummyAgg> //user-defined VertexT
@@ -472,22 +557,26 @@ public:
 				}
 				//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 				assert(src_edgeFrequent.size()==dst_edgeFrequent.size());
-				for (map<int, map<int, int> >::iterator src =src_edgeFrequent.begin(); src != src_edgeFrequent.end();src++) {
-					assert(src_edgeFrequent[src->first].size()==dst_edgeFrequent[src->first].size());
-					for (map<int, int>::iterator dst = src->second.begin();dst != src->second.end(); dst++) {
+				for (map<int, map<int, int> >::iterator src =
+						src_edgeFrequent.begin(); src != src_edgeFrequent.end();
+						src++) {
+					assert(
+							src_edgeFrequent[src->first].size()==dst_edgeFrequent[src->first].size());
+					for (map<int, int>::iterator dst = src->second.begin();
+							dst != src->second.end(); dst++) {
 						edgeFrequent[src->first][dst->first] = min(
 								src_edgeFrequent[src->first][dst->first],
 								dst_edgeFrequent[src->first][dst->first]);
 
 #ifdef little
-						if(get_worker_id()==MASTER_RANK)
+						if (get_worker_id() == MASTER_RANK)
 							ST("<%c,%c> occurs %d times\n", src->first,
 									dst->first,
 									edgeFrequent[src->first][dst->first]);
 #else
 						if (get_worker_id()==MASTER_RANK && edgeFrequent[src->first][dst->first] >= minsup)
 //						if (get_worker_id()==MASTER_RANK)
-							ST("<%d,%d> occurs %d times\n", src->first, dst->first,edgeFrequent[src->first][dst->first]);
+						ST("<%d,%d> occurs %d times\n", src->first, dst->first,edgeFrequent[src->first][dst->first]);
 #endif
 					}
 				}
@@ -681,7 +770,7 @@ public:
 		//==============================loop start here=========================================
 		GSPAN::gSpan gspan; //initialize gspan and the label set
 #ifdef little
-		minsup=2;
+		minsup = 2;
 #else
 		minsup = 30;
 #endif

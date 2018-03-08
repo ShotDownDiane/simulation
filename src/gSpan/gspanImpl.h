@@ -31,16 +31,21 @@
 namespace GSPAN {
 char * resultfile=NULL;
 gSpan::gSpan(void) {
-
 #ifdef SIMULATION
 #ifdef little
 	labelset.push_back('a');
 	labelset.push_back('b');
 	labelset.push_back('c');
 	labelset.push_back('d');
+	labelset_global.push_back('a');
+	labelset_global.push_back('b');
+	labelset_global.push_back('c');
+	labelset_global.push_back('d');
 #else
-	for (char i = 1; i <= 100; i++)
+	for (char i = 1; i <= 100; i++){
 		labelset.push_back(i);
+		labelset_global.push_back(i);
+	}
 #endif
 	labelsetsize = labelset.size();
 #endif
