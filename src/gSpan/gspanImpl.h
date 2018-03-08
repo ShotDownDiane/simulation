@@ -391,7 +391,7 @@ void gSpan::project(Projected &projected) {
 	 * might be its (n+1)-extension-graphs, hence we enumerate them all.
 	 */
 
-	const RMPath rmpath = DFS_CODE.buildRMPath(); //build by backward traverse.
+	//const RMPath rmpath = DFS_CODE.buildRMPath(); //build by backward traverse.
 	int minlabel = DFS_CODE[0].fromlabel; //root vertex label, minlabel of dfscode
 	int maxtoc = DFS_CODE[rmpath[0]].to; //max vertexID of dfs code.
 

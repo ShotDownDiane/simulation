@@ -122,10 +122,10 @@ int curSupp() {
 vector<int> RMVertexes;
 
 //variables distributed on each worker
-map<int, map<int, int> > ext_e_src_freq;
-map<int, map<int, int> > ext_e_dst_freq;
-map<int, map<char, map<char, int> > > ext_v_src_freq;
-map<int, map<char, map<char, int> > > ext_v_dst_freq;
+map<int, map<int, int> > ext_e_src_freq;//srcid -> dstid -> freq
+map<int, map<int, int> > ext_e_dst_freq;//srcid -> dstid -> freq
+map<int, map<char, map<char, int> > > ext_v_src_freq;//RMpathvertexid -> lalbel -> src(direction) -> freq
+map<int, map<char, map<char, int> > > ext_v_dst_freq;//RMpathvertexid -> lalbel -> src(direction) -> freq
 
 //variables maintained by master
 vector<map<int, map<int, int> > > ext_e_freq_stack; //stack -> srcid -> dstid -> freq
@@ -133,16 +133,14 @@ vector<map<int, map<char, map<char, int> > > > ext_v_freq_stack; //stack -> RMpa
 
 //executed after each super step
 void superstep_postprocess() {
-	map<int, map<int, int> > & ext_e_freq=ext_e_freq_stack[ext_e_freq_stack.size()-1];
-	map<int, map<char, map<char, int> > > & ext_v_freq=ext_v_freq_stack[ext_v_freq_stack.size()-1];
 
 	int mpi_msg_size=RMVertexes.size()*RMVertexes.size()*2+RMVertexes.size()*labelsetsize*2*2;
 	int mpi_send[mpi_msg_size];
-	int mpi_receive[mpi_msg_size];
+	int mpi_recv[mpi_msg_size];
 
 	for(int i=0;i<mpi_msg_size;i++){
 		mpi_send[i]=0;
-		mpi_receive[i]=0;
+		mpi_recv[i]=0;
 	}
 
 	//prepare ext_e_src_freq to be send
@@ -199,14 +197,36 @@ void superstep_postprocess() {
 		}
 	}
 
-	MPI_Reduce(mpi_send, mpi_receive, mpi_msg_size,MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+	MPI_Reduce(mpi_send, mpi_recv, mpi_msg_size,MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
+	if(get_worker_id()==MASTER_RANK){
+		map<int, map<int, int> > & ext_e_freq=ext_e_freq_stack[ext_e_freq_stack.size()-1];
+		map<int, map<char, map<char, int> > > & ext_v_freq=ext_v_freq_stack[ext_v_freq_stack.size()-1];
 
+		//ext_e_freq
+		int offset1=0;
+		int offset2=RMVertexes.size()*RMVertexes.size();
+		for(int i=0;i<RMVertexes.size();i++){
+			for(int j=0;j<RMVertexes.size();j++){
+				ext_e_freq[RMVertexes[i]][RMVertexes[j]]=min(mpi_recv[offset1+RMVertexes.size()*i+j],mpi_recv[offset2+RMVertexes.size()*i+j]);
+			}
+		}
+		//ext_v_freq
+		offset1=RMVertexes.size()*RMVertexes.size()*2;
+		offset2=RMVertexes.size()*RMVertexes.size()*2+RMVertexes.size()*labelsetsize*2;
+		for(int i=0;i<RMVertexes.size();i++){
+			for(int j=0;j<labelset_global.size();j++){
+				for(int k=0;k<src_pos.size();k++){
+					ext_v_freq[RMVertexes[i]][labelset_global[j]][src_pos[k]]=
+						min(
+							mpi_recv[offset1+src_pos.size()*labelset_global.size()*i+src_pos.size()*j+k],
+							mpi_recv[offset2+src_pos.size()*labelset_global.size()*i+src_pos.size()*j+k]
+						);
+				}
+			}
+		}
 
-
-
-
-
+	}
 }
 
 //----------------------------------------------------------------------------------------------------------------------------------------
