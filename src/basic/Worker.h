@@ -229,6 +229,8 @@ void postsimmessageprocess() {
 		ext_v_freq_stack.resize(edges.size());
 		map<int, map<int, int> > & ext_e_freq=ext_e_freq_stack[ext_e_freq_stack.size()-1];
 		map<int, map<char, map<char, int> > > & ext_v_freq=ext_v_freq_stack[ext_v_freq_stack.size()-1];
+		ext_e_freq.clear();
+		ext_v_freq.clear();
 
 		//ext_e_freq
 		int offset1=0;
@@ -254,7 +256,26 @@ void postsimmessageprocess() {
 		}
 
 		{//debugzjh
-			for(map<int,map<int,int> >::iterator it=ext_e_freq.begin();it!=ext_e_freq.end();it++){
+			printf("RMVertexes: ");
+			for(int i=0;i<RMVertexes.size();i++){
+				printf("%d, ",RMVertexes[i]);
+			}
+			printf("\n");
+
+			for(map<int,map<int,int> >::iterator srcit=ext_e_freq.begin();srcit!=ext_e_freq.end();srcit++){
+				for(map<int,int>::iterator dstit=srcit->second.begin();dstit!=srcit->second.end();dstit++){
+					if(dstit->second!=0)
+					printf("sup(%d,%d)=%d\n",srcit->first,dstit->first,dstit->second);
+				}
+			}
+
+			for(map<int, map<char, map<char, int> > >::iterator rmv=ext_v_freq.begin();rmv!=ext_v_freq.end();rmv++){
+				for(map<char, map<char, int> >::iterator label=rmv->second.begin();label!=rmv->second.end();label++){
+					for(map<char,int>::iterator direction=label->second.begin();direction!=label->second.end();direction++){
+						if(direction->second!=0)
+						printf("sup(id:%d,label:%c,src:%c)=%d\n",rmv->first,label->first,direction->first,direction->second);
+					}
+				}
 			}
 		}
 
