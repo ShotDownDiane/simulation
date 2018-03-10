@@ -595,11 +595,103 @@ public:
 		vote_to_halt();
 	}
 
+	void Vpostloopsim(MessageContainer & messages){
+//		map<int, map<int, int> > ext_e_src_freq;//srcid -> dstid -> freq
+//		map<int, map<int, int> > ext_e_dst_freq;//srcid -> dstid -> freq
+//		map<int, map<char, map<char, int> > > ext_v_src_freq;//RMpathvertexid -> lalbel -> src(direction) -> freq
+//		map<int, map<char, map<char, int> > > ext_v_dst_freq;//RMpathvertexid -> lalbel -> src(direction) -> freq
+		const UINT_32 simset=value().simsetStack.back();
+
+		//ext_e_src_freq
+		for(int i=0;i<RMVertexes.size();i++){
+			if(!(simset & 1 << RMVertexes[i]))continue;
+			for(int j=0;j<RMVertexes.size();j++){
+				if(i==j)continue;
+
+				bool canadd=false;
+				for(map<VertexID,Neib_pregel>::iterator it=value().outNeighbors.begin();it!=value().outNeighbors.end();it++){
+					if(it->second.simsetStack.back() & 1<<RMVertexes[j]){
+						canadd=true;
+						break;
+					}
+				}
+				if(canadd)ext_e_src_freq[RMVertexes[i]][RMVertexes[j]]++;
+
+			}
+		}
+		//ext_e_dst_freq
+		for(int j=0;j<RMVertexes.size();j++){
+			if(!(simset & 1 << RMVertexes[j]))continue;
+			for(int i=0;i<RMVertexes.size();i++){
+				if(i==j)continue;
+
+				bool canadd=false;
+				for(map<VertexID,Neib_pregel>::iterator it=value().inNeighbors.begin();it!=value().inNeighbors.end();it++){
+					if(it->second.simsetStack.back() & 1<<RMVertexes[i]){
+						canadd=true;
+						break;
+					}
+				}
+				if(canadd)ext_e_dst_freq[RMVertexes[i]][RMVertexes[j]]++;
+
+			}
+		}
+		//ext_v_src_freq_l
+		for(int i=0;i<RMVertexes.size();i++){
+			if(simset & 1<<RMVertexes[i]){
+				set<char> outlabels;
+				for(map<VertexID,Neib_pregel>::iterator it=value().outNeighbors.begin();it!=value().outNeighbors.end();it++){
+					outlabels.insert(it->second.label);
+				}
+				for(set<char>::iterator it=outlabels.begin();it!=outlabels.end();it++){
+					ext_v_src_freq[RMVertexes[i]][*it]['l']++;
+				}
+			}
+		}
+		//ext_v_dst_freq_l
+		UINT_32 insimset=0;
+		for(map<VertexID,Neib_pregel>::iterator it=value().inNeighbors.begin();it!=value().inNeighbors.end();it++){
+			insimset|=it->second.simsetStack.back();
+		}
+		for(int i=0;i<RMVertexes.size();i++){
+			if(insimset & 1<<RMVertexes[i]){
+				ext_v_dst_freq[RMVertexes[i]][value().label]['l']++;
+			}
+		}
+		//ext_v_src_freq_r
+		UINT_32 outsimset=0;
+		for(map<VertexID,Neib_pregel>::iterator it=value().outNeighbors.begin();it!=value().outNeighbors.end();it++){
+			outsimset|=it->second.simsetStack.back();
+		}
+		for(int i=0;i<RMVertexes.size();i++){
+			if(outsimset & 1<<RMVertexes[i]){
+				ext_v_src_freq[RMVertexes[i]][value().label]['r']++;
+			}
+		}
+		//ext_v_dst_freq_r
+		for(int i=0;i<RMVertexes.size();i++){
+			if(simset & 1<<RMVertexes[i]){
+				set<char> inlabels;
+				for(map<VertexID,Neib_pregel>::iterator it=value().inNeighbors.begin();it!=value().inNeighbors.end();it++){
+					inlabels.insert(it->second.label);
+				}
+				for(set<char>::iterator it=inlabels.begin();it!=inlabels.end();it++){
+					ext_v_dst_freq[RMVertexes[i]][*it]['r']++;
+				}
+			}
+		}
+
+
+		vote_to_halt();
+	}
+
 	virtual void compute(MessageContainer & messages) {
 		if (phase == preprocessing) {
 			Vpreprocessing(messages);
 		} else if (phase == normalcomputing) {
 			Vnormalcompute(messages);
+		} else if(phase==postloopsim){
+			Vpostloopsim(messages);
 		}
 	}
 

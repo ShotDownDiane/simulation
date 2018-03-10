@@ -15,7 +15,7 @@
 using namespace std;
 //------------------------------------------------------------------------------------------------------------------------------------
 enum Phase {
-	preprocessing = 1, normalcomputing = 2
+	preprocessing = 1, normalcomputing = 2, postloopsim=3
 };
 Phase phase = preprocessing;
 //=================preprocessing=====================
@@ -130,31 +130,56 @@ map<int, map<char, map<char, int> > > ext_v_dst_freq;//RMpathvertexid -> lalbel 
 //variables maintained by master
 vector<map<int, map<int, int> > > ext_e_freq_stack; //stack -> srcid -> dstid -> freq
 vector<map<int, map<char, map<char, int> > > > ext_v_freq_stack; //stack -> RMpathvertexid -> lalbel -> src(direction) -> freq
-
-//executed after each super step
-void superstep_postprocess() {
-
-	int mpi_msg_size=RMVertexes.size()*RMVertexes.size()*2+RMVertexes.size()*labelsetsize*2*2;
-	int mpi_send[mpi_msg_size];
-	int mpi_recv[mpi_msg_size];
-
-	for(int i=0;i<mpi_msg_size;i++){
-		mpi_send[i]=0;
-		mpi_recv[i]=0;
+void postsiminit(){
+	ext_e_src_freq.clear();
+	ext_e_dst_freq.clear();
+	ext_v_src_freq.clear();
+	ext_v_dst_freq.clear();
+	//exchange RMVertexes
+	if(get_worker_id()==MASTER_RANK){
+		masterBcast(RMVertexes);
+	}else{
+		slaveBcast(RMVertexes);
 	}
 
+	for(int i=0;i<RMVertexes.size();i++){
+		for(int j=0;j<RMVertexes.size();j++){
+			ext_e_src_freq[RMVertexes[i]][RMVertexes[j]]=0;
+			ext_e_dst_freq[RMVertexes[i]][RMVertexes[j]]=0;
+		}
+	}
+	for(int i=0;i<RMVertexes.size();i++){
+		for(int j=0;j<labelset_global.size();j++){
+			ext_v_src_freq[RMVertexes[i]][labelset_global[j]]['l']=0;
+			ext_v_src_freq[RMVertexes[i]][labelset_global[j]]['r']=0;
+			ext_v_dst_freq[RMVertexes[i]][labelset_global[j]]['l']=0;
+			ext_v_dst_freq[RMVertexes[i]][labelset_global[j]]['r']=0;
+		}
+	}
+}
+//executed after each super step
+void postsimmessageprocess() {
+	const int mpi_msg_size=RMVertexes.size()*RMVertexes.size()*2+RMVertexes.size()*labelsetsize*2*2;
+	int send[mpi_msg_size];
+	int recv[mpi_msg_size];
+
+	for(int i=0;i<mpi_msg_size;i++){
+		send[i]=0;
+		recv[i]=0;
+	}
 	//prepare ext_e_src_freq to be send
 	int offset=0;
 	for(int i=0;i<RMVertexes.size();i++){
 		if(ext_e_src_freq.find(RMVertexes[i])==ext_e_src_freq.end())continue;
 
-		for(int j=0;j<RMVertexes.size();i++){
+		for(int j=0;j<RMVertexes.size();j++){
 			if(i==j)continue;
 			if(ext_e_src_freq[RMVertexes[i]].find(RMVertexes[j])==ext_e_src_freq[RMVertexes[i]].end())continue;
 
-			mpi_send[offset+RMVertexes.size()*i+j]=ext_e_src_freq[RMVertexes[i]][RMVertexes[j]];
+			send[offset+RMVertexes.size()*i+j]=ext_e_src_freq[RMVertexes[i]][RMVertexes[j]];
 		}
 	}
+
 	//prepare ext_e_dst_freq to be send
 	offset=RMVertexes.size()*RMVertexes.size();
 	for(int i=0;i<RMVertexes.size();i++){
@@ -164,7 +189,7 @@ void superstep_postprocess() {
 			if(i==j)continue;
 			if(ext_e_dst_freq[RMVertexes[i]].find(RMVertexes[j])==ext_e_dst_freq[RMVertexes[i]].end())continue;
 
-			mpi_send[offset+RMVertexes.size()*i+j]=ext_e_dst_freq[RMVertexes[i]][RMVertexes[j]];
+			send[offset+RMVertexes.size()*i+j]=ext_e_dst_freq[RMVertexes[i]][RMVertexes[j]];
 		}
 	}
 	//prepare ext_v_src_freq
@@ -179,7 +204,7 @@ void superstep_postprocess() {
 			for(int k=0;k<src_pos.size();k++){
 				if(ext_v_src_freq[RMVertexes[i]][labelset_global[j]].find(src_pos[k])==ext_v_src_freq[RMVertexes[i]][labelset_global[j]].end())continue;
 
-				mpi_send[offset+src_pos.size()*labelset_global.size()*i+src_pos.size()*j+k]=ext_v_src_freq[RMVertexes[i]][labelset_global[j]][src_pos[k]];
+				send[offset+src_pos.size()*labelset_global.size()*i+src_pos.size()*j+k]=ext_v_src_freq[RMVertexes[i]][labelset_global[j]][src_pos[k]];
 			}
 		}
 	}
@@ -192,14 +217,16 @@ void superstep_postprocess() {
 			for(int k=0;k<src_pos.size();k++){
 				if(ext_v_dst_freq[RMVertexes[i]][labelset_global[j]].find(src_pos[k])==ext_v_dst_freq[RMVertexes[i]][labelset_global[j]].end())continue;
 
-				mpi_send[offset+src_pos.size()*labelset_global.size()*i+src_pos.size()*j+k]=ext_v_dst_freq[RMVertexes[i]][labelset_global[j]][src_pos[k]];
+				send[offset+src_pos.size()*labelset_global.size()*i+src_pos.size()*j+k]=ext_v_dst_freq[RMVertexes[i]][labelset_global[j]][src_pos[k]];
 			}
 		}
 	}
 
-	MPI_Reduce(mpi_send, mpi_recv, mpi_msg_size,MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+	MPI_Reduce(send, recv, mpi_msg_size,MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
 	if(get_worker_id()==MASTER_RANK){
+		ext_e_freq_stack.resize(edges.size());
+		ext_v_freq_stack.resize(edges.size());
 		map<int, map<int, int> > & ext_e_freq=ext_e_freq_stack[ext_e_freq_stack.size()-1];
 		map<int, map<char, map<char, int> > > & ext_v_freq=ext_v_freq_stack[ext_v_freq_stack.size()-1];
 
@@ -208,7 +235,7 @@ void superstep_postprocess() {
 		int offset2=RMVertexes.size()*RMVertexes.size();
 		for(int i=0;i<RMVertexes.size();i++){
 			for(int j=0;j<RMVertexes.size();j++){
-				ext_e_freq[RMVertexes[i]][RMVertexes[j]]=min(mpi_recv[offset1+RMVertexes.size()*i+j],mpi_recv[offset2+RMVertexes.size()*i+j]);
+				ext_e_freq[RMVertexes[i]][RMVertexes[j]]=min(recv[offset1+RMVertexes.size()*i+j],recv[offset2+RMVertexes.size()*i+j]);
 			}
 		}
 		//ext_v_freq
@@ -219,10 +246,15 @@ void superstep_postprocess() {
 				for(int k=0;k<src_pos.size();k++){
 					ext_v_freq[RMVertexes[i]][labelset_global[j]][src_pos[k]]=
 						min(
-							mpi_recv[offset1+src_pos.size()*labelset_global.size()*i+src_pos.size()*j+k],
-							mpi_recv[offset2+src_pos.size()*labelset_global.size()*i+src_pos.size()*j+k]
+							recv[offset1+src_pos.size()*labelset_global.size()*i+src_pos.size()*j+k],
+							recv[offset2+src_pos.size()*labelset_global.size()*i+src_pos.size()*j+k]
 						);
 				}
+			}
+		}
+
+		{//debugzjh
+			for(map<int,map<int,int> >::iterator it=ext_e_freq.begin();it!=ext_e_freq.end();it++){
 			}
 		}
 
@@ -461,6 +493,15 @@ public:
 	void preprocess() {
 		if (get_worker_id() == MASTER_RANK)
 			ST("Enter Preprocess\n");
+
+		//distribute label set;
+		if(get_worker_id()==MASTER_RANK){
+			masterBcast(labelset_global);
+		}else{
+			slaveBcast(labelset_global);
+		}
+		labelsetsize=labelset_global.size();
+
 		if (get_worker_id() == MASTER_RANK)
 			setBit(WAKE_ALL_ORBIT);
 		preprocessSuperstep = 0;
@@ -529,10 +570,10 @@ public:
 #ifdef little
 						src_edgeFrequent[src + 'a'][dst + 'a'] = result[src
 								* labelsetsize + dst];
-						if (get_worker_id() == MASTER_RANK)
-							ST("src<%c,%c> occurs %d times\n", src + 'a',
-									dst + 'a',
-									src_edgeFrequent[src + 'a'][dst + 'a']);
+//						if (get_worker_id() == MASTER_RANK)
+//							ST("src<%c,%c> occurs %d times\n", src + 'a',
+//									dst + 'a',
+//									src_edgeFrequent[src + 'a'][dst + 'a']);
 #else
 						src_edgeFrequent[src+1][dst+1]=result[src*labelsetsize+dst];
 #endif
@@ -566,10 +607,10 @@ public:
 #ifdef little
 						dst_edgeFrequent[src + 'a'][dst + 'a'] = result[src
 								* labelsetsize + dst];
-						if (get_worker_id() == MASTER_RANK)
-							ST("dst<%c,%c> occurs %d times\n", src + 'a',
-									dst + 'a',
-									dst_edgeFrequent[src + 'a'][dst + 'a']);
+//						if (get_worker_id() == MASTER_RANK)
+//							ST("dst<%c,%c> occurs %d times\n", src + 'a',
+//									dst + 'a',
+//									dst_edgeFrequent[src + 'a'][dst + 'a']);
 #else
 						dst_edgeFrequent[src+1][dst+1]=result[src*labelsetsize+dst];
 #endif
@@ -635,7 +676,13 @@ public:
 		hdfsDisconnect(fs);
 	}
 	//=======================================================
-
+	void postsim_process(){
+		phase = postloopsim;
+		postsiminit();
+		all_compute();
+		postsimmessageprocess();
+		phase = normalcomputing;
+	}
 	// run the worker
 	void looponsim() {
 		long long step_msg_num;
@@ -689,6 +736,7 @@ public:
 				active_vnum() = all_sum(active_count);
 				if (active_vnum() == 0
 						&& getBit(HAS_MSG_ORBIT, bits_bor) == 0) {
+					postsim_process();
 					if (get_worker_id() == MASTER_RANK)
 						break; //all_halt AND no_msg
 					else
