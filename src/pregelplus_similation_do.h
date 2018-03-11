@@ -638,12 +638,26 @@ public:
 		//ext_v_src_freq_l
 		for(int i=0;i<RMVertexes.size();i++){
 			if(simset & 1<<RMVertexes[i]){
-				set<char> outlabels;
-				for(map<VertexID,Neib_pregel>::iterator it=value().outNeighbors.begin();it!=value().outNeighbors.end();it++){
-					outlabels.insert(it->second.label);
+				map<char,int> qONLcount;
+				map<char,int> gONLcount;
+				for(vector<int>::iterator it=q.outEdges[RMVertexes[i]].begin();
+						it!=q.outEdges[RMVertexes[i]].end();it++){
+					if(qONLcount.find(q.labels[*it])==qONLcount.end()){
+						qONLcount[q.labels[*it]]=1;
+					}else{
+						qONLcount[q.labels[*it]]++;
+					}
 				}
-				for(set<char>::iterator it=outlabels.begin();it!=outlabels.end();it++){
-					ext_v_src_freq[RMVertexes[i]][*it]['l']++;
+				for(map<VertexID,Neib_pregel>::iterator it=value().outNeighbors.begin();it!=value().outNeighbors.end();it++){
+					if(gONLcount.find(it->second.label)==gONLcount.end()){
+						gONLcount[it->second.label]=1;
+					}else{
+						gONLcount[it->second.label]++;
+					}
+				}
+				for(map<char,int>::iterator it=gONLcount.begin();it!=gONLcount.end();it++){
+					if(qONLcount.find(it->first)==qONLcount.end() || qONLcount[it->first]<it->second)
+						ext_v_src_freq[RMVertexes[i]][it->first]['l']++;
 				}
 			}
 		}
@@ -670,12 +684,27 @@ public:
 		//ext_v_dst_freq_r
 		for(int i=0;i<RMVertexes.size();i++){
 			if(simset & 1<<RMVertexes[i]){
-				set<char> inlabels;
-				for(map<VertexID,Neib_pregel>::iterator it=value().inNeighbors.begin();it!=value().inNeighbors.end();it++){
-					inlabels.insert(it->second.label);
+
+				map<char,int> qINLcount;
+				map<char,int> gINLcount;
+				for(vector<int>::iterator it=q.inEdges[RMVertexes[i]].begin();
+						it!=q.inEdges[RMVertexes[i]].end();it++){
+					if(qINLcount.find(q.labels[*it])==qINLcount.end()){
+						qINLcount[q.labels[*it]]=1;
+					}else{
+						qINLcount[q.labels[*it]]++;
+					}
 				}
-				for(set<char>::iterator it=inlabels.begin();it!=inlabels.end();it++){
-					ext_v_dst_freq[RMVertexes[i]][*it]['r']++;
+				for(map<VertexID,Neib_pregel>::iterator it=value().inNeighbors.begin();it!=value().inNeighbors.end();it++){
+					if(gINLcount.find(it->second.label)==gINLcount.end()){
+						gINLcount[it->second.label]=1;
+					}else{
+						gINLcount[it->second.label]++;
+					}
+				}
+				for(map<char,int>::iterator it=gINLcount.begin();it!=gINLcount.end();it++){
+					if(qINLcount.find(it->first)==qINLcount.end() || qINLcount[it->first]<it->second)
+						ext_v_dst_freq[RMVertexes[i]][it->first]['r']++;
 				}
 			}
 		}
