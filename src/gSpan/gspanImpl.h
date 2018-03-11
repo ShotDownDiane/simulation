@@ -20,7 +20,6 @@
  02111-1307, USA
  */
 
-
 //#include "gspan.h"
 #include "../basic/Worker.h"
 #include <iterator>
@@ -29,7 +28,7 @@
 #include <unistd.h>
 
 namespace GSPAN {
-char * resultfile=NULL;
+char * resultfile = NULL;
 gSpan::gSpan(void) {
 #ifdef SIMULATION
 #ifdef little
@@ -42,7 +41,7 @@ gSpan::gSpan(void) {
 	labelset_global.push_back('c');
 	labelset_global.push_back('d');
 #else
-	for (char i = 1; i <= 100; i++){
+	for (char i = 1; i <= 100; i++) {
 		labelset.push_back(i);
 		labelset_global.push_back(i);
 	}
@@ -170,8 +169,6 @@ void gSpan::report_single(Graph &g, unsigned int sup) {
 }
 #endif
 
-
-
 void gSpan::report(Projected &projected, unsigned int sup) {
 
 	/* Filter too small/too large graphs.
@@ -231,10 +228,9 @@ void gSpan::report(Projected &projected, unsigned int sup) {
 	++ID;
 }
 
-
 void gSpan::store(Projected &projected, unsigned int sup) {
 
-	if(resultfile){
+	if (resultfile) {
 		/* Filter too small/too large graphs.
 		 */
 		if (maxpat_max > maxpat_min && DFS_CODE.nodeCount() > maxpat_max)
@@ -243,14 +239,13 @@ void gSpan::store(Projected &projected, unsigned int sup) {
 			return;
 
 		std::ofstream ofile;
-		ofile.open(resultfile,std::ios::app);
+		ofile.open(resultfile, std::ios::app);
 		Graph g(directed);
 		DFS_CODE.toGraph(g);
 		ofile << "t # " << ID << " * " << sup;
 
-		ofile<< '\n';
+		ofile << '\n';
 		g.write(ofile);
-
 
 		ofile << "\n\n";
 
@@ -271,16 +266,39 @@ void gSpan::project(Projected &projected) {
 	//filter if new added edge below frequent
 	DFS& dfstmp = DFS_CODE.back();
 	if (dfstmp.src == 'l') {
-		if (edgeFrequent[dfstmp.fromlabel][dfstmp.tolabel] < minsup){
+		if (edgeFrequent[dfstmp.fromlabel][dfstmp.tolabel] < minsup) {
 			return;
 		}
 	} else if (dfstmp.src == 'r') {
 //		if(dfstmp.from==30&&dfstmp.tolabel)
-		if (edgeFrequent[dfstmp.tolabel][dfstmp.fromlabel] < minsup){
+		if (edgeFrequent[dfstmp.tolabel][dfstmp.fromlabel] < minsup) {
 			return;
 		}
 	} else {
 		assert(false);
+	}
+	//filter if the pattern isn't frequent after new edge added
+//	ext_e_freq_stack.resize(edges.size());
+//	ext_v_freq_stack.resize(edges.size());
+	if (DFS_CODE.size() >= 2) {
+		map<int, map<int, int> > & ext_e_freq = ext_e_freq_stack[DFS_CODE.size()
+				- 2];
+		map<int, map<char, map<char, int> > > & ext_v_freq =
+				ext_v_freq_stack[DFS_CODE.size() - 2];
+
+		if (dfstmp.from < dfstmp.to) { //forward edge, new vertex
+			if (ext_v_freq[dfstmp.from][dfstmp.tolabel][dfstmp.src] < minsup)
+				return;
+		} else { //backward edge, no new vertex
+			if (dfstmp.src == 'l') {
+				if (ext_e_freq[dfstmp.from][dfstmp.to] < minsup)
+					return;
+			} else if (dfstmp.src == 'r') {
+				if (ext_e_freq[dfstmp.to][dfstmp.from] < minsup)
+					return;
+			}
+		}
+
 	}
 #endif
 
@@ -312,15 +330,15 @@ void gSpan::project(Projected &projected) {
 		return;
 	}
 
-
 #ifdef SIMULATION
 	//maintain the RMVertexes vector
-	RMPath rmpath=DFS_CODE.buildRMPath();
+	RMPath rmpath = DFS_CODE.buildRMPath();
 	RMVertexes.clear();
-	for(RMPath::reverse_iterator it=rmpath.rbegin();it!=rmpath.rend();it++){
+	for (RMPath::reverse_iterator it = rmpath.rbegin(); it != rmpath.rend();
+			it++) {
 		RMVertexes.push_back(DFS_CODE[*it].from);
 	}
-	if(rmpath.size()>0){
+	if (rmpath.size() > 0) {
 		RMVertexes.push_back(DFS_CODE[rmpath[0]].to);
 	}
 
@@ -374,7 +392,6 @@ void gSpan::project(Projected &projected) {
 
 	int supp = curSupp();
 
-
 	if (supp < minsup) {
 		return;
 	}
@@ -385,7 +402,6 @@ void gSpan::project(Projected &projected) {
 #else
 	report(projected, sup);
 #endif
-
 
 	/* We just outputted a frequent subgraph.  As it is frequent enough, so
 	 * might be its (n+1)-extension-graphs, hence we enumerate them all.
@@ -420,7 +436,6 @@ void gSpan::project(Projected &projected) {
 		if (!exist) {
 			if (DFS_CODE[rmpath[i]].tolabel > DFS_CODE[rmpath[0]].tolabel)
 				continue;
-
 
 			DFS_CODE.push(to, from, DFS_CODE[rmpath[0]].tolabel, 0,
 					DFS_CODE[rmpath[i]].fromlabel, 'l');
@@ -545,7 +560,6 @@ void gSpan::project(Projected &projected) {
 #else
 
 void gSpan::project(Projected &projected) {
-
 
 	/* Check if the pattern is frequent enough.
 	 */
@@ -1021,43 +1035,39 @@ void gSpan::run_intern(void) {
 
 }
 
-
-
-
-
 /*
  *
-../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<a,a> occurs 0 times
+ ../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<a,a> occurs 0 times
 
-../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<a,b> occurs 2 times
+ ../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<a,b> occurs 2 times
 
-../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<a,c> occurs 2 times
+ ../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<a,c> occurs 2 times
 
-../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<a,d> occurs 0 times
+ ../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<a,d> occurs 0 times
 
-../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<b,a> occurs 0 times
+ ../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<b,a> occurs 0 times
 
-../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<b,b> occurs 0 times
+ ../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<b,b> occurs 0 times
 
-../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<b,c> occurs 2 times
+ ../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<b,c> occurs 2 times
 
-../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<b,d> occurs 0 times
+ ../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<b,d> occurs 0 times
 
-../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<c,a> occurs 0 times
+ ../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<c,a> occurs 0 times
 
-../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<c,b> occurs 0 times
+ ../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<c,b> occurs 0 times
 
-../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<c,c> occurs 1 times
+ ../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<c,c> occurs 1 times
 
-../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<c,d> occurs 2 times
+ ../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<c,d> occurs 2 times
 
-../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<d,a> occurs 1 times
+ ../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<d,a> occurs 1 times
 
-../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<d,b> occurs 2 times
+ ../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<d,b> occurs 2 times
 
-../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<d,c> occurs 2 times
+ ../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<d,c> occurs 2 times
 
-../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<d,d> occurs 0 times
+ ../src/basic/../gSpan/../basic/Worker.h(391) rank#0:<d,d> occurs 0 times
 
 
 

@@ -256,27 +256,27 @@ void postsimmessageprocess() {
 		}
 
 		{//debugzjh
-			printf("RMVertexes: ");
-			for(int i=0;i<RMVertexes.size();i++){
-				printf("%d, ",RMVertexes[i]);
-			}
-			printf("\n");
-
-			for(map<int,map<int,int> >::iterator srcit=ext_e_freq.begin();srcit!=ext_e_freq.end();srcit++){
-				for(map<int,int>::iterator dstit=srcit->second.begin();dstit!=srcit->second.end();dstit++){
-					if(dstit->second!=0)
-					printf("sup(%d,%d)=%d\n",srcit->first,dstit->first,dstit->second);
-				}
-			}
-
-			for(map<int, map<char, map<char, int> > >::iterator rmv=ext_v_freq.begin();rmv!=ext_v_freq.end();rmv++){
-				for(map<char, map<char, int> >::iterator label=rmv->second.begin();label!=rmv->second.end();label++){
-					for(map<char,int>::iterator direction=label->second.begin();direction!=label->second.end();direction++){
-						if(direction->second!=0)
-						printf("sup(id:%d,label:%c,src:%c)=%d\n",rmv->first,label->first,direction->first,direction->second);
-					}
-				}
-			}
+//			printf("RMVertexes: ");
+//			for(int i=0;i<RMVertexes.size();i++){
+//				printf("%d, ",RMVertexes[i]);
+//			}
+//			printf("\n");
+//
+//			for(map<int,map<int,int> >::iterator srcit=ext_e_freq.begin();srcit!=ext_e_freq.end();srcit++){
+//				for(map<int,int>::iterator dstit=srcit->second.begin();dstit!=srcit->second.end();dstit++){
+//					if(dstit->second!=0)
+//					printf("sup(%d,%d)=%d\n",srcit->first,dstit->first,dstit->second);
+//				}
+//			}
+//
+//			for(map<int, map<char, map<char, int> > >::iterator rmv=ext_v_freq.begin();rmv!=ext_v_freq.end();rmv++){
+//				for(map<char, map<char, int> >::iterator label=rmv->second.begin();label!=rmv->second.end();label++){
+//					for(map<char,int>::iterator direction=label->second.begin();direction!=label->second.end();direction++){
+//						if(direction->second!=0)
+//						printf("sup(id:%d,label:%c,src:%c)=%d\n",rmv->first,label->first,direction->first,direction->second);
+//					}
+//				}
+//			}
 		}
 
 	}

@@ -633,7 +633,6 @@ public:
 					}
 				}
 				if(canadd)ext_e_dst_freq[RMVertexes[i]][RMVertexes[j]]++;
-
 			}
 		}
 		//ext_v_src_freq_l
