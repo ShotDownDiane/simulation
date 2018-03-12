@@ -159,7 +159,8 @@ enum BITS {
     FORCE_TERMINATE_ORBIT = 1,
     WAKE_ALL_ORBIT = 2,
     Query_Mutated=3,
-    PreProcessing=4
+    PreProcessing=4,
+    Low_Sup_Teminate=5
 };
 //currently, only 3 bits are used, others can be defined by users
 char global_bor_bitmap;
@@ -174,6 +175,10 @@ void setBit(int bit)
     global_bor_bitmap |= (2 << bit);
 }
 
+void unsetBit(int bit){
+	global_bor_bitmap &= ~(2 << bit);
+}
+
 int getBit(int bit, char bitmap)
 {
     return ((bitmap & (2 << bit)) == 0) ? 0 : 1;
@@ -182,6 +187,10 @@ int getBit(int bit, char bitmap)
 void hasMsg()
 {
     setBit(HAS_MSG_ORBIT);
+}
+
+void noMsg(){
+	unsetBit(HAS_MSG_ORBIT);
 }
 
 void wakeAll()

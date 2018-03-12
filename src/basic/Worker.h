@@ -720,6 +720,10 @@ public:
 			global_step_num++;
 			ResetTimer(4);
 			//===================
+			if(get_worker_id()==MASTER_RANK
+					&&(!getBit(WAKE_ALL_ORBIT,global_bor_bitmap))
+					&&curSupp()<minsup)
+				setBit(Low_Sup_Teminate);
 			char bits_bor = all_bor(global_bor_bitmap);
 			if (getBit(FORCE_TERMINATE_ORBIT, bits_bor) == 1)
 				break;
@@ -757,7 +761,15 @@ public:
 				active_vnum() = all_sum(active_count);
 				if (active_vnum() == 0
 						&& getBit(HAS_MSG_ORBIT, bits_bor) == 0) {
-					postsim_process();
+					if(!getBit(Low_Sup_Teminate, bits_bor))
+						postsim_process();
+					if (get_worker_id() == MASTER_RANK)
+						break; //all_halt AND no_msg
+					else
+						continue;
+				}
+				if(getBit(Low_Sup_Teminate, bits_bor)){
+					message_buffer->clearAllMsg();
 					if (get_worker_id() == MASTER_RANK)
 						break; //all_halt AND no_msg
 					else

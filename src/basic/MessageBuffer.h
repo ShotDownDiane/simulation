@@ -44,6 +44,13 @@ public:
             in_messages[v->id] = i; //CHANGED FOR VADD
         }
     }
+
+    void clearAllMsg(){
+    	out_messages.clear();
+    	in_messages.clear();
+    	to_add.clear();
+    	noMsg();
+    }
     void add_message(const KeyT& id, const MessageT& msg)
     {
         hasMsg(); //cannot end yet even every vertex halts
